@@ -236,10 +236,10 @@ export function joinPage(error = "", name = ""): Response {
       <fieldset class="tiles"><legend>Your color</legend>
         ${colorTile("pink", "Pink", "--series-1", 85)}${colorTile("green", "Green", "--series-2", 60)}
       </fieldset>
-      <details class="opt"><summary>Want recap texts from Poke? <span>Add your Poke API key</span></summary>
+      <details class="opt"><summary>Optional: <span>let the app text you reminders</span></summary>
         <label for="poke" class="sr">Poke API key</label>
-        <input id="poke" name="poke" autocomplete="off" placeholder="Paste a key from Poke Kitchen → API Keys">
-        <p class="hint">Gets you a 10am recap, a 9pm check-in, and the Monday verdict by text.</p>
+        <input id="poke" name="poke" autocomplete="off" placeholder="Poke API key (Poke Kitchen → API Keys)">
+        <p class="hint">You'll log by texting Poke either way. This key lets the app message you back through Poke: a 10am recap, a 9pm check-in, and the Monday results.</p>
       </details>
       <button type="submit" class="wide">Get my key</button>
     </form>
@@ -271,9 +271,9 @@ export function joinSuccess(origin: string, name: string, apiKey: string, boardT
       <li><h3>Connect Poke</h3><p class="hint">Open <a href="https://poke.com/integrations/new">poke.com/integrations/new</a>, name it <b>Health Bet</b>, and paste:</p>
         <p class="field">MCP Server URL</p>${copyRow("mcp", mcpUrl)}
         <p class="field">API Key</p><p class="hint">Your key from step 1.</p></li>
-      <li><h3>Text Poke your goal</h3><p class="hint">Something like <em>"set my goal: cut, 1700 cal, 120g protein, 45g fat"</em>. Then text it your next meal.</p></li>
+      <li><h3>Start texting Poke</h3><p class="hint">Set your goal first, like <em>"set my goal: cut, 1700 cal, 120g protein, 45g fat"</em>. Then text it what you eat, "gn" when you go to bed, and "gm" when you wake up.</p></li>
     </ol>
-    ${hasPoke ? "" : `<p class="foot">No Poke API key added, so no recap texts. Join again with the same name anytime to add one.</p>`}
+    ${hasPoke ? "" : `<p class="foot">You skipped reminders, so the app won't text you recaps. Logging by texting Poke still works. To add reminders later, join again with the same name.</p>`}
     <div class="links2">
       <a class="go" href="/me/${esc(meToken)}"><b>My page</b><span>Your meals, macros, weight. Just for you.</span></a>
       <a class="go" href="/b/${esc(boardToken)}"><b>Scoreboard</b><span>Shared with your friend. Send them this link.</span></a>
