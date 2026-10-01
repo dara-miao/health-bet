@@ -189,9 +189,11 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
         day = meal.day;
       } else {
         day = args.day ?? today;
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today || day < addDays(today, -7)) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day < addDays(today, -7)) {
           throw new ToolError("day must be YYYY-MM-DD, today or within the past week.");
         }
+        // Agents often send the UTC date, which runs ahead of the game day at night. Never refuse a meal for that.
+        if (day > today) day = today;
         mealId = await db.createMeal(env.DB, player.id, day, args.meal_name ?? null);
       }
       const added = await db.addFood(env.DB, player.id, mealId, day, food);
