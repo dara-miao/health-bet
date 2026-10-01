@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isPublic, statusLines, wakeLine } from "../src/game";
+import { goalLine, statusLines, wakeLine } from "../src/game";
 import type { Env, Player } from "../src/db";
 
 const env = {
-  GAME_TZ: "America/Los_Angeles", SLEEP_TARGET_HOURS: "7", CUT_FLOOR_CALORIES: "1200", POST_DELAY_MINUTES: "30",
+  GAME_TZ: "America/Los_Angeles", SLEEP_TARGET_HOURS: "7", CUT_FLOOR_CALORIES: "1200",
   WAKE_WEEKDAY: "08:30", WAKE_WEEKEND: "10:30", WAKE_GRACE_MINUTES: "10",
 } as Env;
 const dara: Player = {
@@ -12,23 +12,18 @@ const dara: Player = {
 };
 const stats = (calories: number) => ({ calories, protein: 50, fat: 20, carbs: 100, foodCount: 2, sleepMinutes: null, wakeAt: null });
 
-describe("isPublic", () => {
-  const now = new Date("2026-09-30T20:00:00Z");
-  it("stays private until 30 minutes after the last edit", () => {
-    expect(isPublic(env, { posted_at: null, updated_at: "2026-09-30T19:31:00Z" }, now)).toBe(false);
-    expect(isPublic(env, { posted_at: null, updated_at: "2026-09-30T19:30:00Z" }, now)).toBe(true);
-  });
-  it("posts right away once posted_at is set", () => {
-    expect(isPublic(env, { posted_at: "2026-09-30T19:59:00Z", updated_at: "2026-09-30T19:59:00Z" }, now)).toBe(true);
-  });
-});
-
 describe("statusLines", () => {
   it("doesn't mark a cut day under the floor as failed while it's still going", () => {
     expect(statusLines(env, dara, stats(458), "2026-09-30")[0]).toBe("🔥 458 / ≤1,700 cal (1,242 left)");
   });
   it("does in the final recap", () => {
-    expect(statusLines(env, dara, stats(900), "2026-09-30", true)[0]).toBe("🔥 900 / ≤1,700 cal ❌ (under the 1,200 floor)");
+    expect(statusLines(env, dara, stats(900), "2026-09-30", { final: true })[0]).toBe("🔥 900 / ≤1,700 cal ❌ (under the 1,200 floor)");
+  });
+  it("hides fat and carbs from other players", () => {
+    const lines = statusLines(env, dara, stats(1500), "2026-09-30", { shared: true }).join("\n");
+    expect(lines).not.toMatch(/fat|carbs/);
+    expect(goalLine(dara, true)).not.toMatch(/fat/);
+    expect(goalLine(dara)).toMatch(/fat at least 45g/);
   });
   it("flags low fat", () => {
     expect(statusLines(env, dara, stats(1500), "2026-09-30")[2]).toContain("20g / 45g fat (low)");

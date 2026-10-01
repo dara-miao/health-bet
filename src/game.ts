@@ -47,11 +47,6 @@ export async function logNight(env: Env, player: Player, bed: Date, wake: Date):
 
 // ---------- meals ----------
 
-export function isPublic(env: Env, meal: { posted_at: string | null; updated_at: string }, now: Date): boolean {
-  if (meal.posted_at) return true;
-  return now.getTime() - Date.parse(meal.updated_at) >= Number(env.POST_DELAY_MINUTES) * 60_000;
-}
-
 export function mealTotals(meal: MealWithItems) {
   return meal.items.reduce(
     (t, i) => ({ calories: t.calories + i.calories, protein: t.protein + i.protein_g, fat: t.fat + i.fat_g, carbs: t.carbs + i.carbs_g }),
@@ -61,10 +56,13 @@ export function mealTotals(meal: MealWithItems) {
 
 // ---------- text summaries (for the agent and for Poke messages) ----------
 
-export function goalLine(p: Player): string {
+// What other players may see: points, calorie and protein totals, sleep, and wake-up.
+// Meals, fat, carbs, and weight are private to their owner. `shared` = render for someone else.
+
+export function goalLine(p: Player, shared = false): string {
   if (!p.goal_type || p.calorie_target == null || p.protein_target == null) return "no goal set yet";
   const cmp = p.goal_type === "cut" ? "at most" : "at least";
-  const fat = p.fat_target != null ? `, fat at least ${p.fat_target}g (not scored)` : "";
+  const fat = p.fat_target != null && !shared ? `, fat at least ${p.fat_target}g (not scored)` : "";
   return `${p.goal_type}: ${cmp} ${p.calorie_target.toLocaleString()} cal, protein at least ${p.protein_target}g${fat}`;
 }
 
@@ -78,7 +76,8 @@ export function wakeLine(env: Env, day: string, wakeAt: string | null): string {
   return `⏰ up at ${prettyTime(wakeAt, r.tz)} ${late <= r.wakeGraceMinutes ? "✅" : `❌ (${late} min late; ${by})`}`;
 }
 
-export function statusLines(env: Env, p: Player, s: DayStats, day: string, final = false): string[] {
+export function statusLines(env: Env, p: Player, s: DayStats, day: string, opts: { final?: boolean; shared?: boolean } = {}): string[] {
+  const { final = false, shared = false } = opts;
   const r = db.rules(env);
   const lines: string[] = [];
   if (p.calorie_target != null && p.goal_type) {
@@ -104,7 +103,7 @@ export function statusLines(env: Env, p: Player, s: DayStats, day: string, final
     lines.push(`💪 ${s.protein}g protein`);
   }
   const fat = p.fat_target != null ? `${s.fat}g / ${p.fat_target}g fat${s.fat < p.fat_target ? " (low)" : ""}` : `${s.fat}g fat`;
-  lines.push(`🥑 ${fat} · 🍞 ${s.carbs}g carbs`);
+  if (!shared) lines.push(`🥑 ${fat} · 🍞 ${s.carbs}g carbs`);
   lines.push(
     s.sleepMinutes != null
       ? `😴 ${prettyDuration(s.sleepMinutes)} sleep ${sleepGoalMet(s, r) ? "✅" : "❌"}`
@@ -156,7 +155,7 @@ export function formatBoard(board: Board): string[] {
 }
 
 /** Everything the agent needs to answer questions and pick the right ids. */
-export async function statusReport(env: Env, player: Player, now: Date, offset: string): Promise<string> {
+export async function statusReport(env: Env, player: Player, now: Date, offset: string, privateUrl: string): Promise<string> {
   const tz = env.GAME_TZ;
   const today = gameDay(now, tz);
   const p = localParts(now, tz);
@@ -172,15 +171,17 @@ export async function statusReport(env: Env, player: Player, now: Date, offset: 
     db.weightsForPlayer(env.DB, player.id),
   ]);
   const stats = await Promise.all(players.map((pl) => dayStats(env, pl.id, today)));
+  const sharedToday = await Promise.all(
+    players.map(async (pl) => (pl.id === player.id ? [] : (await db.mealsForDay(env.DB, pl.id, today)).filter((m) => m.shared_at))),
+  );
   const r = db.rules(env);
 
   const mealLines = (list: MealWithItems[]) =>
     list.length === 0
       ? ["  (none)"]
       : list.flatMap((m) => {
-          const state = isPublic(env, m, now) ? "posted" : `private, posts after ${env.POST_DELAY_MINUTES} min with no edits`;
           return [
-            `  Meal ${m.id}${m.name ? ` "${m.name}"` : ""} [${state}]`,
+            `  Meal ${m.id}${m.name ? ` "${m.name}"` : ""}${m.shared_at ? " [shared with the other players]" : " [private]"}`,
             ...m.items.map((i) => `    item ${i.id}: ${i.description}: ${i.calories} cal, ${i.protein_g}g P, ${i.fat_g}g F, ${i.carbs_g}g C`),
           ];
         });
@@ -200,12 +201,19 @@ export async function statusReport(env: Env, player: Player, now: Date, offset: 
     `Yesterday's meals (${addDays(today, -1)}):`,
     ...mealLines(yesterdayMeals),
     "",
-    "Everyone today:",
-    ...players.map((pl, i) => `  ${pl.name} (${goalLine(pl)}): ${statusLines(env, pl, stats[i], today).join(" | ")}`),
+    "Other players today (only what's shared: points, calories, protein, sleep, wake-up; their meals, fat, carbs and weight are private):",
+    ...players
+      .map((pl, i) => ({ pl, i }))
+      .filter(({ pl }) => pl.id !== player.id)
+      .flatMap(({ pl, i }) => [
+        `  ${pl.name} (${goalLine(pl, true)}): ${statusLines(env, pl, stats[i], today, { shared: true }).join(" | ")}`,
+        ...sharedToday[i].map((m) => `    shared meal${m.name ? ` "${m.name}"` : ""}: ${m.items.map((it) => `${it.description} (${it.calories} cal, ${it.protein_g}g P)`).join("; ")}`),
+      ]),
     "",
     "This week's points (Mon to today):",
     ...formatBoard(board).map((l) => `  ${l}`),
     `Loser's punishment: ${punishment ?? "(not set)"}`,
+    `${player.name}'s private page (meals, macros, weight; share it with no one): ${privateUrl}`,
   ];
   return lines.filter((l, i) => l !== "" || lines[i - 1] !== "").join("\n");
 }
@@ -221,7 +229,7 @@ export async function dayRecap(env: Env, day: string): Promise<string> {
   const lines = [`📋 Recap for ${prettyDay(day)}`];
   for (const p of players) {
     const s = await dayStats(env, p.id, day);
-    lines.push("", `${p.name}: +${scoreDay(p, s, r, day).points} pts`, ...statusLines(env, p, s, day, true).map((l) => `  ${l}`));
+    lines.push("", `${p.name}: +${scoreDay(p, s, r, day).points} pts`, ...statusLines(env, p, s, day, { final: true, shared: true }).map((l) => `  ${l}`));
   }
   return lines.join("\n");
 }

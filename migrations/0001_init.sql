@@ -3,6 +3,7 @@ CREATE TABLE players (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
   api_key_hash TEXT NOT NULL UNIQUE,   -- SHA-256 of the key their agent sends as a Bearer token
+  private_token TEXT NOT NULL UNIQUE,  -- link to the player's own page (meals, macros, weight)
   poke_api_key TEXT,                   -- optional: lets the app send them recaps through Poke
   goal_type TEXT CHECK (goal_type IN ('cut', 'bulk')),
   calorie_target INTEGER,
@@ -13,15 +14,14 @@ CREATE TABLE players (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- A meal groups food items. It goes public on the scoreboard once posted_at is set,
--- or once it's gone POST_DELAY_MINUTES without edits.
+-- A meal groups food items. Meals are private to their owner until they choose to share one.
 CREATE TABLE meals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   player_id INTEGER NOT NULL REFERENCES players(id),
   day TEXT NOT NULL,                   -- game day, YYYY-MM-DD
   name TEXT,
-  updated_at TEXT NOT NULL,            -- ISO
-  posted_at TEXT                       -- ISO, set by post_meal
+  shared_at TEXT,                      -- ISO; set when the owner shares it with the other players
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX meals_player_day ON meals (player_id, day);
 
@@ -50,6 +50,7 @@ CREATE TABLE sleep_entries (
   UNIQUE (player_id, day)
 );
 
+-- Private to the player.
 CREATE TABLE weights (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   player_id INTEGER NOT NULL REFERENCES players(id),

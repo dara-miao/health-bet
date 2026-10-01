@@ -12,8 +12,6 @@ WAKE_WEEKEND = "10:30"
 WAKE_GRACE_MINUTES = "10"
 # A cut day under this many calories never earns the calorie point.
 CUT_FLOOR_CALORIES = "1200"
-# Meals go public on the scoreboard this long after their last edit (or right away with post_meal).
-POST_DELAY_MINUTES = "30"
 
 [[d1_databases]]
 binding = "DB"

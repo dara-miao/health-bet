@@ -4,7 +4,7 @@ import { dayRecap, eveningNudge, weekVerdict } from "./game";
 import { handleMcp } from "./mcp";
 import { sendToPoke } from "./poke";
 import { addDays, gameDay, localParts, weekStart } from "./time";
-import { boardPage, historyPage, joinPage, joinSuccess } from "./web";
+import { boardPage, historyPage, joinPage, joinSuccess, privatePage } from "./web";
 
 const RECAP_HOUR = 10; // daily recap (and Monday's weekly verdict) goes out at 10am
 const NUDGE_HOUR = 21; // evening check-in at 9pm
@@ -32,6 +32,18 @@ export default {
       return boardPage(env, token, new Date());
     }
 
+    const me = path.match(/^\/me\/([\w-]+)(\/share)?$/);
+    if (me) {
+      const player = await db.playerByPrivateToken(env.DB, me[1]);
+      if (!player) return new Response("Not found", { status: 404 });
+      if (me[2] && request.method === "POST") {
+        const form = await request.formData();
+        await db.setMealShared(env.DB, player.id, Number(form.get("meal")), form.get("shared") === "1", new Date().toISOString());
+        return new Response(null, { status: 303, headers: { location: `/me/${me[1]}` } });
+      }
+      return privatePage(env, player, me[1], (await db.getSetting(env.DB, "board_token")) ?? "", new Date());
+    }
+
     if (path === "/") return Response.redirect(`${url.origin}/join`, 302);
     return new Response("Not found", { status: 404 });
   },
@@ -55,7 +67,8 @@ async function handleJoin(request: Request, env: Env, origin: string): Promise<R
   if (!name) return joinPage("Enter your name.", name);
 
   const apiKey = `hb_${randomToken(24)}`;
-  await db.joinPlayer(env.DB, name, await db.sha256(apiKey), poke);
+  const meToken = randomToken(18);
+  await db.joinPlayer(env.DB, name, await db.sha256(apiKey), meToken, poke);
 
   let boardToken = await db.getSetting(env.DB, "board_token");
   if (!boardToken) {
@@ -63,7 +76,7 @@ async function handleJoin(request: Request, env: Env, origin: string): Promise<R
     await db.setSetting(env.DB, "board_token", boardToken);
   }
   const player = (await db.listPlayers(env.DB)).find((p) => p.name.toLowerCase() === name.toLowerCase())!;
-  return joinSuccess(origin, player.name, apiKey, boardToken, Boolean(player.poke_api_key));
+  return joinSuccess(origin, player.name, apiKey, boardToken, meToken, Boolean(player.poke_api_key));
 }
 
 // ---------- scheduled messages through Poke ----------

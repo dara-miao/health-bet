@@ -2,7 +2,7 @@
 // small inline script from JSON embedded in the page.
 import * as db from "./db";
 import type { Env, Player } from "./db";
-import { dayStats, isPublic, mealTotals, weekBoard } from "./game";
+import { dayStats, mealTotals, weekBoard } from "./game";
 import { EMPTY_DAY, calorieGoalMet, proteinGoalMet, scoreDay, wakeGoalMet, wakeMinutes, wakeTarget, type DayStats } from "./scoring";
 import { addDays, gameDay, prettyClock, prettyDay, prettyDuration, prettyTime, weekStart } from "./time";
 
@@ -61,6 +61,11 @@ td.n, th.n { text-align: right; }
 .meal { padding: 12px 0; border-bottom: 1px solid var(--grid); }
 .meal:last-child { border-bottom: 0; }
 .meal ul { margin: 6px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
+.meal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.meal-head form { margin: 0; }
+.meal-head button { margin: 0; padding: 4px 12px; font-size: 13px; background: var(--page); color: var(--ink); border: 1px solid var(--axis); }
+.chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--ring); color: var(--ink-2); }
+.private-note { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--ring); background: var(--surface); color: var(--ink-2); font-size: 14px; }
 .chips a { display: inline-block; padding: 4px 12px; border: 1px solid var(--ring); border-radius: 999px; text-decoration: none; color: var(--ink-2); margin-right: 6px; }
 .chips a[aria-current] { color: var(--ink); border-color: var(--ink); }
 .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
@@ -91,10 +96,24 @@ function layout(title: string, body: string, script = ""): Response {
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 
-function nav(token: string, current: "board" | "history"): string {
+function nav(token: string, current: "board" | "history" | "me", meToken?: string): string {
+  const cur = (k: string) => (current === k ? 'aria-current="page"' : "");
   return `<nav><h1>Health Bet</h1><div class="links">
-    <a href="/b/${esc(token)}" ${current === "board" ? 'aria-current="page"' : ""}>Scoreboard</a>
-    <a href="/b/${esc(token)}/history" ${current === "history" ? 'aria-current="page"' : ""}>History</a></div></nav>`;
+    <a href="/b/${esc(token)}" ${cur("board")}>Scoreboard</a>
+    <a href="/b/${esc(token)}/history" ${cur("history")}>History</a>
+    ${meToken ? `<a href="/me/${esc(meToken)}" ${cur("me")}>My page</a>` : ""}</div></nav>`;
+}
+
+function mealBlock(m: db.MealWithItems, opts: { owner?: string; color?: string; full: boolean; shareForm?: string }): string {
+  const t = mealTotals(m);
+  const who = opts.owner ? `<span class="swatch" style="background:${opts.color}"></span><strong>${esc(opts.owner)}</strong> · ` : "";
+  const macros = opts.full ? ` · ${t.fat}g fat · ${t.carbs}g carbs` : "";
+  const item = (it: db.FoodEntry) =>
+    `<li>${esc(it.description)} <span class="muted">(${it.calories} cal, ${it.protein_g}g P${opts.full ? `, ${it.fat_g}g F, ${it.carbs_g}g C` : ""})</span></li>`;
+  return `<div class="meal"><div class="meal-head"><div>${who}${m.name ? esc(m.name) : "Meal"}
+      ${opts.full ? (m.shared_at ? ' <span class="chip">shared</span>' : ' <span class="chip muted">private</span>') : ""}</div>${opts.shareForm ?? ""}</div>
+    <div class="sub" style="font-variant-numeric:tabular-nums">${fmt(t.calories)} cal · ${t.protein}g protein${macros}</div>
+    <ul>${m.items.map(item).join("")}</ul></div>`;
 }
 
 // ---------- join ----------
@@ -115,7 +134,7 @@ export function joinPage(error = "", name = ""): Response {
   );
 }
 
-export function joinSuccess(origin: string, name: string, apiKey: string, boardToken: string, hasPoke: boolean): Response {
+export function joinSuccess(origin: string, name: string, apiKey: string, boardToken: string, meToken: string, hasPoke: boolean): Response {
   const mcpUrl = `${origin}/mcp`;
   return layout(
     "You're in",
@@ -130,10 +149,13 @@ export function joinSuccess(origin: string, name: string, apiKey: string, boardT
         <li>MCP Server URL: <span class="key">${esc(mcpUrl)}</span></li>
         <li>API Key: paste your key from above.</li>
         <li>Text Poke something like <em>"set my goal: cut, 1700 cal, 120g protein, 45g fat"</em>, then log your first meal.</li>
+        <li>Poke can always give you your private page link: just ask "what's my private page?"</li>
       </ol>
       ${hasPoke ? "" : `<p class="muted">You didn't add a Poke API key, so you won't get the 10am recap and 9pm check-in by text. Come back here with the same name to add one.</p>`}
+      <h3>Your private page</h3>
+      <p>All your meals, macros, and weight. Only for you, so don't share it: <a href="/me/${esc(meToken)}">${esc(origin)}/me/${esc(meToken)}</a></p>
       <h3>Scoreboard</h3>
-      <p>Bookmark this private link and share it only with your friend: <a href="/b/${esc(boardToken)}">${esc(origin)}/b/${esc(boardToken)}</a></p>
+      <p>The shared page for you and your friend: <a href="/b/${esc(boardToken)}">${esc(origin)}/b/${esc(boardToken)}</a></p>
     </div>`,
   );
 }
@@ -146,7 +168,9 @@ function meter(label: string, value: string, frac: number, color: string, status
     <div class="track" style="--c:${color}" role="img" aria-label="${esc(label)} ${esc(value)}"><div class="fill" style="width:${pct.toFixed(1)}%"></div></div></div>`;
 }
 
-function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, todayPts: number, lastNight: number | null): string {
+/** `full` adds the unscored macros; it's only used on the player's own private page. */
+function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, todayPts: number, full: boolean): string {
+  const lastNight = s.sleepMinutes;
   const r = db.rules(env);
   const color = seriesVar(i);
   const parts: string[] = [];
@@ -162,12 +186,12 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, to
     const ok = proteinGoalMet(p, s);
     parts.push(meter("Protein", `${s.protein}g / ${p.protein_target}g`, s.protein / p.protein_target, color, ok ? `<span class="ok">✓</span>` : ""));
   }
-  if (p.fat_target != null) {
+  if (full && p.fat_target != null) {
     parts.push(meter(`Fat <span class="muted">(not scored)</span>`, `${s.fat}g / ${p.fat_target}g`, s.fat / p.fat_target, color, s.fat >= p.fat_target ? `<span class="ok">✓</span>` : ""));
-  } else {
+  } else if (full) {
     parts.push(`<div class="meter"><div class="row"><span>Fat <span class="muted">(not scored)</span></span><span class="v">${s.fat}g</span></div></div>`);
   }
-  parts.push(`<div class="meter"><div class="row"><span>Carbs <span class="muted">(not scored)</span></span><span class="v">${s.carbs}g</span></div></div>`);
+  if (full) parts.push(`<div class="meter"><div class="row"><span>Carbs <span class="muted">(not scored)</span></span><span class="v">${s.carbs}g</span></div></div>`);
   const sleepOk = lastNight != null && lastNight >= r.sleepTargetMinutes;
   parts.push(
     lastNight != null
@@ -195,7 +219,10 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
     db.getSetting(env.DB, "punishment"),
   ]);
   const stats = await Promise.all(players.map((p) => dayStats(env, p.id, today)));
-  const meals = await Promise.all(players.map((p) => db.mealsForDay(env.DB, p.id, today)));
+  const shared = await Promise.all(players.map(async (p) => (await db.mealsForDay(env.DB, p.id, today)).filter((m) => m.shared_at)));
+  const sharedHtml = players
+    .flatMap((p, i) => shared[i].map((m) => mealBlock(m, { owner: p.name, color: seriesVar(i), full: false })))
+    .join("");
 
   const hero = board.rows
     .map(
@@ -205,12 +232,15 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
     .join("");
   let verdict = "";
   if (board.rows.length >= 2) {
-    verdict = board.loser ? `<strong>${esc(board.loser.name)}</strong> is losing right now.` : "Dead even right now.";
+    const tied = board.rows.every((row) => row.points === board.rows[0].points);
+    verdict = board.loser
+      ? `<strong>${esc(board.loser.name)}</strong> is losing right now${tied ? " (tied on points, behind on total sleep)" : ""}.`
+      : "Dead even right now.";
   }
   const banner = `<div class="banner">${verdict} ${punishment ? `Loser's punishment: <strong>${esc(punishment)}</strong>` : `<span class="muted">No punishment set yet. Text your agent "set the punishment to ..."</span>`}</div>`;
 
   const cards = players
-    .map((p, i) => playerCard(env, p, i, stats[i], today, scoreDay(p, stats[i], r, today).points, stats[i].sleepMinutes))
+    .map((p, i) => playerCard(env, p, i, stats[i], today, scoreDay(p, stats[i], r, today).points, false))
     .join("");
 
   const dayHeads = board.days.map((d) => `<th class="n" title="${prettyDay(d)}">${prettyDay(d).slice(0, 2)}</th>`).join("");
@@ -221,22 +251,6 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
     )
     .join("");
 
-  const feed = players
-    .flatMap((p, i) => meals[i].filter((m) => isPublic(env, m, now)).map((m) => ({ p, i, m })))
-    .sort((a, b) => (b.m.posted_at ?? b.m.updated_at).localeCompare(a.m.posted_at ?? a.m.updated_at))
-    .map(({ p, i, m }) => {
-      const t = mealTotals(m);
-      return `<div class="meal"><div><span class="swatch" style="background:${seriesVar(i)}"></span><strong>${esc(p.name)}</strong>
-        ${m.name ? `· ${esc(m.name)}` : ""} <span class="muted">· ${prettyTime(m.posted_at ?? m.updated_at, env.GAME_TZ)}</span></div>
-        <div class="sub" style="font-variant-numeric:tabular-nums">${fmt(t.calories)} cal · ${t.protein}g protein · ${t.fat}g fat · ${t.carbs}g carbs</div>
-        <ul>${m.items.map((it) => `<li>${esc(it.description)} <span class="muted">(${it.calories} cal, ${it.protein_g}g P)</span></li>`).join("")}</ul></div>`;
-    });
-  const pending = players
-    .map((p, i) => ({ p, n: meals[i].filter((m) => !isPublic(env, m, now)).length }))
-    .filter((x) => x.n > 0)
-    .map((x) => `${esc(x.p.name)} has ${x.n} meal${x.n > 1 ? "s" : ""} still being edited.`)
-    .join(" ");
-
   return layout(
     "Scoreboard",
     `${nav(token, "board")}
@@ -245,8 +259,8 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
     <h2>Today</h2><div class="players">${cards}</div>
     <h2>This week</h2><div class="card table-wrap"><table class="wk"><thead><tr><th>Player</th>${dayHeads}<th class="n">Total</th></tr></thead><tbody>${weekRows}</tbody></table>
       <p class="muted" style="margin:8px 0 0;font-size:13px">1 point each for calories, protein, ${prettyDuration(r.sleepTargetMinutes)}+ sleep, and being up by ${prettyClock(r.wakeWeekday)} (weekends ${prettyClock(r.wakeWeekend)}, ${r.wakeGraceMinutes} min grace). Lowest weekly total loses.</p></div>
-    <h2>Meals today</h2><div class="card">${feed.join("") || `<p class="muted" style="margin:0">No posted meals yet. Meals post ${env.POST_DELAY_MINUTES} minutes after their last edit.</p>`}
-      ${pending ? `<p class="muted" style="margin:8px 0 0">${pending}</p>` : ""}</div>`,
+    <h2>Shared meals today</h2><div class="card">${sharedHtml || '<p class="muted" style="margin:0">Nobody has shared a meal today. Meals are private until you share one from your page or tell Poke "share my lunch".</p>'}</div>
+    <p class="muted" style="font-size:13px">Shared here: points, calorie and protein totals, sleep, wake-up times, and meals you choose to share. Fat, carbs, weight, and unshared meals stay on each player's private page.</p>`,
     `<script>setTimeout(() => location.reload(), 5 * 60 * 1000)</script>`,
   );
 }
@@ -272,77 +286,14 @@ export async function historyPage(env: Env, token: string, now: Date, rangeDays:
     })
     .join("");
 
-  // Daily series for charts.
   const from = addDays(today, -(rangeDays - 1));
   const days = Array.from({ length: rangeDays }, (_, k) => addDays(from, k));
-  const perPlayer = await Promise.all(
-    players.map(async (p, i) => {
-      const [stats, weights] = await Promise.all([db.statsForRange(env.DB, p.id, from, today), db.weightsForPlayer(env.DB, p.id)]);
-      const s = (d: string) => stats.get(d) ?? EMPTY_DAY;
-      const logged = (d: string) => s(d).foodCount > 0;
-      const wByDay = new Map(weights.map((w) => [w.day, w.lb]));
-      const charts = [
-        { title: "Calories", unit: "cal", target: p.calorie_target, targetLabel: p.goal_type === "cut" ? "max" : "min", values: days.map((d) => (logged(d) ? s(d).calories : null)) },
-        { title: "Protein", unit: "g", target: p.protein_target, targetLabel: "min", values: days.map((d) => (logged(d) ? s(d).protein : null)) },
-        { title: "Fat", unit: "g", target: p.fat_target, targetLabel: "min", values: days.map((d) => (logged(d) ? s(d).fat : null)) },
-        { title: "Sleep", unit: "h", target: r.sleepTargetMinutes / 60, targetLabel: "target", values: days.map((d) => (s(d).sleepMinutes == null ? null : Math.round((s(d).sleepMinutes! / 60) * 10) / 10)) },
-        {
-          title: "Wake-up",
-          unit: "time",
-          target: null,
-          targetLabel: "",
-          note: `by ${prettyClock(r.wakeWeekday)} weekdays · ${prettyClock(r.wakeWeekend)} weekends`,
-          values: days.map((d) => (s(d).wakeAt ? wakeMinutes(s(d).wakeAt!, r.tz) / 60 : null)),
-          zeroBased: false,
-        },
-        { title: "Weight", unit: "lb", target: p.goal_weight_lb, targetLabel: "goal", values: days.map((d) => wByDay.get(d) ?? null), zeroBased: false },
-      ];
-      const streak = (() => {
-        let n = 0;
-        for (let d = addDays(today, -1); d >= firstDay; d = addDays(d, -1)) {
-          if (scoreDay(p, s(d), r, d).points === 4) n++;
-          else break;
-        }
-        return n;
-      })();
-      // Finished days since this player started tracking.
-      const started = days.find((d) => s(d).foodCount > 0 || s(d).sleepMinutes != null);
-      const hits = days.filter((d) => started && d >= started && d < today).map((d) => scoreDay(p, s(d), r, d));
-      const rate = (k: "calOk" | "proteinOk" | "sleepOk" | "wakeOk") => Math.round((hits.filter((h) => h[k]).length / hits.length) * 100);
-      const rates = hits.length ? { n: hits.length, cal: rate("calOk"), protein: rate("proteinOk"), sleep: rate("sleepOk"), wake: rate("wakeOk") } : null;
-      return { p, i, charts, streak, rates };
-    }),
-  );
-
+  const sections = await Promise.all(players.map((p, i) => playerHistory(env, p, i, days, today, firstDay, false)));
   const chips = [14, 30, 90]
     .map((n) => `<a href="/b/${esc(token)}/history?days=${n}" ${n === rangeDays ? 'aria-current="true"' : ""}>${n} days</a>`)
     .join("");
 
-  const sections = perPlayer
-    .map(({ p, i, charts, streak, rates }) => {
-      const chartDivs = charts
-        .map(
-          (c: any, k) => `<div class="card"><h3>${c.title}${c.target != null ? ` <span class="muted">· ${c.targetLabel} ${fmt(c.target)}${c.unit === "cal" ? "" : c.unit}</span>` : c.note ? ` <span class="muted">· ${c.note}</span>` : ""}</h3>
-          <div class="chart" tabindex="0" data-chart="${i}-${k}" aria-label="${esc(p.name)} ${c.title} chart. Use left and right arrows to read values."></div></div>`,
-        )
-        .join("");
-      const tableRows = days
-        .map((d, k) => `<tr><td>${prettyDay(d)}</td>${charts.map((c) => `<td class="n">${c.values[k] == null ? "–" : c.unit === "time" ? prettyClock(Math.round(c.values[k]! * 60)) : fmt(c.values[k]!)}</td>`).join("")}</tr>`)
-        .reverse()
-        .join("");
-      return `<h2><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</h2>
-        <p class="sub">${rates ? `Goals hit on ${rates.n} finished day${rates.n > 1 ? "s" : ""}: calories ${rates.cal}% · protein ${rates.protein}% · sleep ${rates.sleep}% · up on time ${rates.wake}%` : "Hit rates show up after the first full day."}${streak ? ` · 🔥 ${streak}-day perfect streak` : ""}</p>
-        <div class="charts">${chartDivs}</div>
-        <details><summary>Show as table</summary><div class="card table-wrap" style="margin-top:8px"><table>
-          <thead><tr><th>Day</th>${charts.map((c) => `<th class="n">${c.title}${c.unit === "time" ? "" : ` (${c.unit})`}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table></div></details>`;
-    })
-    .join("");
-
-  const data = {
-    days,
-    labels: days.map(prettyDay),
-    charts: Object.fromEntries(perPlayer.flatMap(({ i, charts }) => charts.map((c, k) => [`${i}-${k}`, { ...c, color: SERIES[i % SERIES.length] }]))),
-  };
+  const data = { days, labels: days.map(prettyDay), charts: Object.assign({}, ...sections.map((x) => x.charts)) };
 
   return layout(
     "History",
@@ -351,7 +302,101 @@ export async function historyPage(env: Env, token: string, now: Date, rangeDays:
     <h2>Weekly results</h2>
     <div class="card table-wrap"><table><thead><tr><th>Week of</th>${players.map((p, i) => `<th class="n"><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</th>`).join("")}<th>Result</th></tr></thead>
     <tbody>${weekRows}</tbody></table></div>
-    ${sections || '<p class="muted">No players yet.</p>'}`,
+    ${sections.map((x) => x.html).join("") || '<p class="muted">No players yet.</p>'}`,
+    `<script type="application/json" id="chart-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
+    <script>${CHART_JS}</script>`,
+  );
+}
+
+/** One player's hit rates and charts. `full` adds the private charts (fat, weight). */
+async function playerHistory(env: Env, p: Player, i: number, days: string[], today: string, firstDay: string, full: boolean) {
+  const r = db.rules(env);
+  const [stats, weights] = await Promise.all([
+    db.statsForRange(env.DB, p.id, days[0], today),
+    full ? db.weightsForPlayer(env.DB, p.id) : Promise.resolve([]),
+  ]);
+  const s = (d: string) => stats.get(d) ?? EMPTY_DAY;
+  const logged = (d: string) => s(d).foodCount > 0;
+  const wByDay = new Map(weights.map((w) => [w.day, w.lb]));
+  const charts: any[] = [
+    { title: "Calories", unit: "cal", target: p.calorie_target, targetLabel: p.goal_type === "cut" ? "max" : "min", values: days.map((d) => (logged(d) ? s(d).calories : null)) },
+    { title: "Protein", unit: "g", target: p.protein_target, targetLabel: "min", values: days.map((d) => (logged(d) ? s(d).protein : null)) },
+    ...(full ? [{ title: "Fat", unit: "g", target: p.fat_target, targetLabel: "min", values: days.map((d) => (logged(d) ? s(d).fat : null)) }] : []),
+    { title: "Sleep", unit: "h", target: r.sleepTargetMinutes / 60, targetLabel: "target", values: days.map((d) => (s(d).sleepMinutes == null ? null : Math.round((s(d).sleepMinutes! / 60) * 10) / 10)) },
+    {
+      title: "Wake-up",
+      unit: "time",
+      target: null,
+      targetLabel: "",
+      note: `by ${prettyClock(r.wakeWeekday)} weekdays · ${prettyClock(r.wakeWeekend)} weekends`,
+      values: days.map((d) => (s(d).wakeAt ? wakeMinutes(s(d).wakeAt!, r.tz) / 60 : null)),
+      zeroBased: false,
+    },
+    ...(full ? [{ title: "Weight", unit: "lb", target: p.goal_weight_lb, targetLabel: "goal", values: days.map((d) => wByDay.get(d) ?? null), zeroBased: false }] : []),
+  ];
+  let streak = 0;
+  for (let d = addDays(today, -1); d >= firstDay; d = addDays(d, -1)) {
+    if (scoreDay(p, s(d), r, d).points === 4) streak++;
+    else break;
+  }
+  // Finished days since this player started tracking.
+  const started = days.find((d) => s(d).foodCount > 0 || s(d).sleepMinutes != null);
+  const hits = days.filter((d) => started && d >= started && d < today).map((d) => scoreDay(p, s(d), r, d));
+  const rate = (k: "calOk" | "proteinOk" | "sleepOk" | "wakeOk") => Math.round((hits.filter((h) => h[k]).length / hits.length) * 100);
+  const rates = hits.length ? `Goals hit on ${hits.length} finished day${hits.length > 1 ? "s" : ""}: calories ${rate("calOk")}% · protein ${rate("proteinOk")}% · sleep ${rate("sleepOk")}% · up on time ${rate("wakeOk")}%` : "Hit rates show up after the first full day.";
+
+  const chartDivs = charts
+    .map(
+      (c, k) => `<div class="card"><h3>${c.title}${c.target != null ? ` <span class="muted">· ${c.targetLabel} ${fmt(c.target)}${c.unit === "cal" ? "" : c.unit}</span>` : c.note ? ` <span class="muted">· ${c.note}</span>` : ""}</h3>
+      <div class="chart" tabindex="0" data-chart="${i}-${k}" aria-label="${esc(p.name)} ${c.title} chart. Use left and right arrows to read values."></div></div>`,
+    )
+    .join("");
+  const cell = (c: any, v: number | null) => (v == null ? "–" : c.unit === "time" ? prettyClock(Math.round(v * 60)) : fmt(v));
+  const tableRows = days
+    .map((d, k) => `<tr><td>${prettyDay(d)}</td>${charts.map((c) => `<td class="n">${cell(c, c.values[k])}</td>`).join("")}</tr>`)
+    .reverse()
+    .join("");
+  const html = `<h2><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</h2>
+    <p class="sub">${rates}${streak ? ` · 🔥 ${streak}-day perfect streak` : ""}</p>
+    <div class="charts">${chartDivs}</div>
+    <details><summary>Show as table</summary><div class="card table-wrap" style="margin-top:8px"><table>
+      <thead><tr><th>Day</th>${charts.map((c) => `<th class="n">${c.title}${c.unit === "time" ? "" : ` (${c.unit})`}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table></div></details>`;
+  return { html, charts: Object.fromEntries(charts.map((c, k) => [`${i}-${k}`, { ...c, color: SERIES[i % SERIES.length] }])) };
+}
+
+// ---------- private page ----------
+
+export async function privatePage(env: Env, player: Player, meToken: string, boardToken: string, now: Date): Promise<Response> {
+  const today = gameDay(now, env.GAME_TZ);
+  const r = db.rules(env);
+  const players = await db.listPlayers(env.DB);
+  const i = Math.max(0, players.findIndex((p) => p.id === player.id));
+  const others = players.filter((p) => p.id !== player.id).map((p) => p.name).join(" & ") || "the other players";
+  const [s, todayMeals, yMeals] = await Promise.all([
+    dayStats(env, player.id, today),
+    db.mealsForDay(env.DB, player.id, today),
+    db.mealsForDay(env.DB, player.id, addDays(today, -1)),
+  ]);
+  const shareForm = (m: db.MealWithItems) =>
+    `<form method="post" action="/me/${esc(meToken)}/share"><input type="hidden" name="meal" value="${m.id}">
+      <input type="hidden" name="shared" value="${m.shared_at ? "0" : "1"}">
+      <button type="submit">${m.shared_at ? "Unshare" : `Share with ${esc(others)}`}</button></form>`;
+  const list = (ms: db.MealWithItems[], empty: string) =>
+    ms.length ? ms.map((m) => mealBlock(m, { full: true, shareForm: shareForm(m) })).join("") : `<p class="muted" style="margin:0">${empty}</p>`;
+
+  const days = Array.from({ length: 30 }, (_, k) => addDays(today, k - 29));
+  const firstDay = (await db.firstActivityDay(env.DB)) ?? today;
+  const hist = await playerHistory(env, player, i, days, today, firstDay, true);
+  const data = { days, labels: days.map(prettyDay), charts: hist.charts };
+
+  return layout(
+    `${player.name}'s page`,
+    `${nav(boardToken, "me", meToken)}
+    <p class="private-note">🔒 Only you can see this page. ${esc(others)} sees your points, calorie and protein totals, sleep, and wake-up, plus any meal you share. Don't share this link.</p>
+    <div class="players">${playerCard(env, player, i, s, today, scoreDay(player, s, r, today).points, true)}</div>
+    <h2>Today's food</h2><div class="card">${list(todayMeals, "Nothing logged yet today. Text Poke what you ate.")}</div>
+    <h2>Yesterday</h2><div class="card">${list(yMeals, "Nothing logged yesterday.")}</div>
+    ${hist.html.replace(/<h2>.*?<\/h2>/s, "<h2>Last 30 days</h2>")}`,
     `<script type="application/json" id="chart-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
     <script>${CHART_JS}</script>`,
   );

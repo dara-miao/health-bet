@@ -1,6 +1,6 @@
 # Health Bet
 
-A scorekeeper for a health bet between friends. You text your AI agent ([Poke](https://poke.com)) what you ate and when you sleep. It estimates calories and macros and logs them here through an MCP connection. A private web page shows the live scoreboard and history. Every morning Poke texts you a recap, and every Monday it announces who lost the week.
+A scorekeeper for a health bet between friends. You text your AI agent ([Poke](https://poke.com)) what you ate and when you sleep. It estimates calories and macros and logs them here through an MCP connection. A shared scoreboard shows who's winning, and each player has a private page with their own meals, macros, and weight. Every morning Poke texts you a recap, and every Monday it announces who lost the week.
 
 There's no AI cost on the app side: Poke does the estimating. Hosting runs on Cloudflare's free tier.
 
@@ -21,7 +21,18 @@ The wake-up time is when you text Poke "gm", so send it when you actually get up
 - Not logging any food that day earns no food points.
 - **Week = Monday to Sunday.** Lowest total loses and does the punishment. A tie on points goes to whoever slept more. If that's tied too, it's a draw.
 - Days end at **4am** Pacific, so a 1am snack counts for the day before. A night's sleep counts toward the day you wake up.
-- **Meals stay private while you're editing them.** A meal goes public on the scoreboard after 30 minutes with no edits, or right away if you tell Poke "post it". Your totals update right away either way.
+## What the other player can see
+
+| | Shared scoreboard (both of you) | Your private page (only you) |
+|---|---|---|
+| Points, week standings | ✅ | ✅ |
+| Calorie and protein totals | ✅ | ✅ |
+| Sleep and wake-up times | ✅ | ✅ |
+| Your meals | only the ones you share | ✅ all of them |
+| Fat and carbs | – | ✅ |
+| Weight | – | ✅ |
+
+Meals are private until you share one: tap **Share** on your private page, or tell Poke "share my dinner". Tap **Unshare** to take it back. The daily recap sent to both of you contains only the shared fields; your 9pm check-in is just for you.
 
 ## What you can text Poke
 
@@ -30,6 +41,7 @@ The wake-up time is when you text Poke "gm", so send it when you actually get up
 - "gn" … "gm" → logs your sleep
 - "slept 1am to 7am" → logs a night after the fact
 - "how much protein do I have left?" / "who's winning?"
+- "share my dinner with Mal" / "what's my private page?"
 - "weighed 137 this morning"
 - "set my goal: cut, 1700 cal, 120g protein, 45g fat"
 - "set the punishment to loser buys boba for a week"
@@ -83,19 +95,18 @@ Change these in `wrangler.toml` and push (Cloudflare redeploys automatically):
 | `WAKE_WEEKDAY` / `WAKE_WEEKEND` | `08:30` / `10:30` | be up by this time for the wake-up point |
 | `WAKE_GRACE_MINUTES` | `10` | minutes after the wake-up time that still count |
 | `CUT_FLOOR_CALORIES` | `1200` | a cut day under this never earns the calorie point |
-| `POST_DELAY_MINUTES` | `30` | how long a meal stays private after its last edit |
 
 The 10am and 9pm send times are constants at the top of `src/index.ts`.
 
 ### Privacy notes
 
-- The scoreboard link is secret but not password-protected: anyone with the link can view it. Share it only with your friend.
+- The scoreboard and private-page links are secret but not password-protected: anyone with a link can open it. Share the scoreboard only with your friend, and your private page with no one. Joining again with the same name gives you a new private link (and the old one stops working).
 - API keys are stored hashed. Poke API keys are stored as-is so the app can send messages with them.
 
 ## Development
 
 ```sh
-npm test            # unit tests: scoring, day boundaries, meal posting
+npm test            # unit tests: scoring, day boundaries, privacy
 npm run typecheck
 cp .dev.vars.example .dev.vars
 npx wrangler d1 migrations apply health-bet --local
@@ -105,8 +116,8 @@ npm run dev         # then open http://localhost:8787/join
 Code layout:
 
 - `src/index.ts`: routes, the join flow, and scheduled messages
-- `src/mcp.ts`: the MCP server and tools Poke calls (`log_food`, `edit_food`, `delete_food`, `post_meal`, `sleep_start`, `sleep_end`, `log_sleep`, `get_status`, `set_goal`, `log_weight`, `set_punishment`)
-- `src/web.ts`: the join page, scoreboard, and history charts
+- `src/mcp.ts`: the MCP server and tools Poke calls (`log_food`, `edit_food`, `delete_food`, `share_meal`, `sleep_start`, `sleep_end`, `log_sleep`, `get_status`, `set_goal`, `log_weight`, `set_punishment`)
+- `src/web.ts`: the join page, scoreboard, history charts, and private pages
 - `src/game.ts`: sleep logging, meal visibility, and reports
 - `src/scoring.ts`: the scoring rules (pure functions)
 - `src/time.ts`: timezone and 4am-rollover date math

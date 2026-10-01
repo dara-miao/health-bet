@@ -8,7 +8,6 @@ export interface Env {
   WAKE_WEEKDAY: string; // "08:30"
   WAKE_WEEKEND: string; // "10:30"
   WAKE_GRACE_MINUTES: string;
-  POST_DELAY_MINUTES: string;
   JOIN_CODE: string;
   POKE_API_URL?: string; // override for local testing
 }
@@ -70,8 +69,8 @@ export interface Meal {
   player_id: number;
   day: string;
   name: string | null;
-  updated_at: string;
-  posted_at: string | null;
+  shared_at: string | null;
+  created_at: string;
 }
 
 export interface MealWithItems extends Meal {
@@ -92,16 +91,24 @@ export async function sha256(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Creates a player, or re-links an existing one (same name) to a new API key. */
-export async function joinPlayer(db: D1Database, name: string, apiKeyHash: string, pokeKey: string | null) {
+/** Creates a player, or re-links an existing one (same name) to a new API key and private link. */
+export async function joinPlayer(db: D1Database, name: string, apiKeyHash: string, privateToken: string, pokeKey: string | null) {
   await db
     .prepare(
-      `INSERT INTO players (name, api_key_hash, poke_api_key) VALUES (?, ?, ?)
-       ON CONFLICT (name) DO UPDATE SET api_key_hash = excluded.api_key_hash,
+      `INSERT INTO players (name, api_key_hash, private_token, poke_api_key) VALUES (?, ?, ?, ?)
+       ON CONFLICT (name) DO UPDATE SET api_key_hash = excluded.api_key_hash, private_token = excluded.private_token,
          poke_api_key = COALESCE(excluded.poke_api_key, players.poke_api_key)`,
     )
-    .bind(name, apiKeyHash, pokeKey)
+    .bind(name, apiKeyHash, privateToken, pokeKey)
     .run();
+}
+
+export async function playerByPrivateToken(db: D1Database, token: string): Promise<Player | null> {
+  return db.prepare(`SELECT ${PLAYER_COLS} FROM players WHERE private_token = ?`).bind(token).first<Player>();
+}
+
+export async function privateToken(db: D1Database, id: number): Promise<string> {
+  return (await db.prepare("SELECT private_token FROM players WHERE id = ?").bind(id).first<{ private_token: string }>())!.private_token;
 }
 
 export async function playerByKey(db: D1Database, apiKey: string): Promise<Player | null> {
@@ -139,10 +146,10 @@ export async function setPendingBed(db: D1Database, id: number, iso: string | nu
 
 // ---------- meals & food ----------
 
-export async function createMeal(db: D1Database, playerId: number, day: string, name: string | null, nowIso: string) {
+export async function createMeal(db: D1Database, playerId: number, day: string, name: string | null) {
   const row = await db
-    .prepare("INSERT INTO meals (player_id, day, name, updated_at) VALUES (?, ?, ?, ?) RETURNING id")
-    .bind(playerId, day, name, nowIso)
+    .prepare("INSERT INTO meals (player_id, day, name) VALUES (?, ?, ?) RETURNING id")
+    .bind(playerId, day, name)
     .first<{ id: number }>();
   return row!.id;
 }
@@ -151,14 +158,12 @@ export async function getMeal(db: D1Database, playerId: number, mealId: number):
   return db.prepare("SELECT * FROM meals WHERE id = ? AND player_id = ?").bind(mealId, playerId).first<Meal>();
 }
 
-export async function touchMeals(db: D1Database, mealIds: number[], nowIso: string) {
-  if (mealIds.length === 0) return;
-  const stmt = db.prepare("UPDATE meals SET updated_at = ? WHERE id = ?");
-  await db.batch(mealIds.map((id) => stmt.bind(nowIso, id)));
-}
-
-export async function postMeal(db: D1Database, mealId: number, nowIso: string) {
-  await db.prepare("UPDATE meals SET posted_at = COALESCE(posted_at, ?) WHERE id = ?").bind(nowIso, mealId).run();
+export async function setMealShared(db: D1Database, playerId: number, mealId: number, shared: boolean, nowIso: string) {
+  const res = await db
+    .prepare("UPDATE meals SET shared_at = ? WHERE id = ? AND player_id = ?")
+    .bind(shared ? nowIso : null, mealId, playerId)
+    .run();
+  return res.meta.changes > 0;
 }
 
 export async function addFood(db: D1Database, playerId: number, mealId: number, day: string, items: FoodItem[]) {
