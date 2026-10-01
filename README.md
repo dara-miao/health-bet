@@ -69,7 +69,7 @@ These need each player's Poke API key (entered on the join page). Without one, t
 
    Then redeploy from **Deployments** (or push any commit).
 
-3. **Each player joins.** Your worker's URL is shown on its overview page, like `https://health-bet.<you>.workers.dev`. Open `/join` on it and enter:
+3. **Each player joins.** Your worker's URL is shown on its overview page, like `https://bet.<you>.workers.dev`. Open `/join` on it and enter:
    - the join code
    - your name
    - your Poke API key (optional). Create a V2 key in Poke's Kitchen. This is what lets the app text you recaps.
@@ -78,7 +78,7 @@ These need each player's Poke API key (entered on the join page). Without one, t
 
 4. **Connect Poke.** Go to [poke.com/integrations/new](https://poke.com/integrations/new) and fill in:
    - **Name:** `Health Bet`
-   - **MCP Server URL:** `https://health-bet.<you>.workers.dev/mcp`
+   - **MCP Server URL:** `https://bet.<you>.workers.dev/mcp`
    - **API Key:** your key from step 3
 
 5. **Set your goal** by texting Poke, e.g. *"set my goal: cut, 1700 cal, 120g protein, 45g fat"*. Then log your first meal.
