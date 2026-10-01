@@ -62,7 +62,7 @@ These need each player's Poke API key (entered on the join page). Without one, t
    - Click **Deploy**. The first deploy creates the database.
    - Set up its tables: in the dashboard go to **Storage & Databases → D1 → health-bet → Console**, paste the contents of `migrations/0001_init.sql`, and run it. (Or from a terminal: `npm run db:migrate`.)
 
-2. **Set the join code.** Open the worker, then go to **Settings → Variables and Secrets → Add**:
+2. **Set the join code.** (Alternatively, store it in the database: `INSERT INTO settings (key, value) VALUES ('join_code', 'your-code')`. The secret wins if both are set.) Open the worker, then go to **Settings → Variables and Secrets → Add**:
    - **Type:** Secret
    - **Name:** `JOIN_CODE`
    - **Value:** a password you and your friend will use. Make it long.
