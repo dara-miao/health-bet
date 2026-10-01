@@ -137,7 +137,7 @@ ol li { margin-bottom: 8px; }
 main.narrow { max-width: 460px; padding-block: 48px 64px; }
 .onboard { text-align: center; margin-bottom: 22px; }
 .onboard .mark { width: 64px; height: 40px; display: block; margin: 0 auto 14px; }
-.onboard .title { margin: 10px 0 0; font-size: 36px; text-align: center; }
+.onboard .title { margin: 0; font-size: 36px; text-align: center; text-transform: none; letter-spacing: 0; }
 .onboard .lede { margin: 8px auto 0; text-align: center; max-width: 34ch; }
 .form { padding: 20px; border-radius: 26px; }
 .form label:first-of-type { margin-top: 0; }
@@ -234,8 +234,7 @@ function colorTile(value: "pink" | "green", label: string, series: string, arc: 
 export function joinPage(error = "", name = ""): Response {
   return layout(
     "Join Health Bet",
-    `<header class="onboard">${MARK}<h1>Health Bet</h1>
-      <p class="title">Join the bet</p>
+    `<header class="onboard">${MARK}<h1 class="title">Join the bet</h1>
       <p class="lede">Food, sleep, and wake-up.<br>Lowest per week loses.</p></header>
     <form method="post" class="card form">
       ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ""}
@@ -272,8 +271,7 @@ export function joinSuccess(origin: string, name: string, apiKey: string, boardT
     `<div class="copy"><code id="${id}">${esc(value)}</code><button type="button" class="pill" data-copy="${id}">Copy</button></div>`;
   return layout(
     "You're in",
-    `<header class="onboard">${MARK}<h1>Health Bet</h1>
-      <p class="title">You're in, ${esc(name)}</p>
+    `<header class="onboard">${MARK}<h1 class="title">You're in, ${esc(name)}</h1>
       <p class="lede">Three steps and you're logging.</p></header>
     <ol class="card steps">
       <li><h3>Save your key</h3><p class="hint">It's only shown this once. Keep it in your notes app.</p>${copyRow("key", apiKey)}</li>
