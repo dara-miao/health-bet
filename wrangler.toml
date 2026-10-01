@@ -16,7 +16,7 @@ CUT_FLOOR_CALORIES = "1200"
 [[d1_databases]]
 binding = "DB"
 database_name = "health-bet"
-# No database_id: the first `wrangler deploy` creates the database and reuses it after that.
+database_id = "47feba78-2d5b-4816-a28a-590f42189573"
 migrations_dir = "migrations"
 
 [triggers]
