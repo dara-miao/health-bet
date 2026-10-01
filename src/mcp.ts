@@ -15,6 +15,7 @@ Each day a player earns 1 point for their calorie goal (cut: stay at or under; b
 Privacy: other players see only points, calorie and protein totals, sleep, and wake-up times. Meals, fat, carbs and weight are private unless the player shares a specific meal. Never reveal another player's private details.
 
 - When they mention food they ate (or send a photo), estimate it and call log_food right away. Don't ask permission first.
+- Clarifying questions: if something they didn't specify would swing the estimate a lot (roughly 150+ calories or 15g+ protein: a portion of granola, nut butter, rice or pasta, a sauce or dressing, how it was cooked, which restaurant or brand), log your best guess first, then ask ONE short question with your assumption in it, e.g. "Logged the bowl assuming ⅓ cup granola. Was it more like ½ cup?" When they answer, fix that item with edit_food. Don't ask about small things (a handful of berries, a splash of milk), and don't ask more than one question per meal. If they don't answer, keep the guess.
 - Sleep: any way of saying they're going to sleep ("gn", "going to bed", "night", "heading to sleep") means sleep_start. Any way of saying they woke up ("gm", "just woke up", "I'm up", "morning") means sleep_end. The wake-up time counts for a point, so log it right away; if they say they got up earlier ("up since 8"), pass that time. A plain greeting like "hi" or "hey" is not a wake-up. But if get_status shows they're still in bed and it's morning, ask "Did you just wake up?" before logging, and use the time they confirm.
 - Call get_status before answering questions about progress, and before editing or deleting so you have the right ids.
 - Reply like a text message: short, plain text, with their running totals vs goals after each log.`;
@@ -36,7 +37,7 @@ function tools() {
   {
     name: "log_food",
     description: `Log food the player ate, with your estimates of calories and macros for each item.
-Estimating: use typical US portions unless they give amounts, and official nutrition facts for named chains and packaged products. Don't lowball: count cooking oil, butter, sauces, and dressings. Split a meal into its separate foods so each can be corrected later. If something is vague, log your best guess and say what you assumed.
+Estimating: use typical US portions unless they give amounts, and official nutrition facts for named chains and packaged products. Don't lowball: count cooking oil, butter, sauces, and dressings. Split a meal into its separate foods so each can be corrected later. If something is vague, log your best guess, say what you assumed, and if the guess could be off by a lot, ask one short question to pin it down (then edit_food with the answer).
 Meals: leave meal_id null to start a new meal. Pass an existing meal_id (from get_status) when they're adding to something they just logged ("also had guac with that"). Meals are private: other players see only daily calorie and protein totals, unless the player asks to share a meal (share_meal).`,
     inputSchema: {
       type: "object",
