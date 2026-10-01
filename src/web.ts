@@ -18,13 +18,13 @@ const seriesVar = (i: number) => `var(${SERIES[i % SERIES.length]})`;
 
 const CSS = `
 /* Sport-watch look: panels like watch faces, big condensed numerals, small spaced-out labels.
-   Follows the phone's light/dark setting. Dara is pink, Mal is green (validated per theme).
+   Follows the phone's light/dark setting. Soft pink and sage green, picked to stay distinct for colorblind readers.
    Status never uses a player hue: hits are a plain check in ink, misses are amber. */
 :root {
   color-scheme: light;
   --page: #efefec; --surface: #ffffff; --raise: #f4f4f1; --ink: #0d0d0c; --ink-2: #4a4a46; --muted: #73736d;
   --grid: #ebebe7; --axis: #d6d6d0; --ring: #e4e4df;
-  --series-1: #e05a9a; --series-2: #18803f;
+  --series-1: #d17aa0; --series-2: #4b8f5d;
   --good: #0d0d0c; --critical: #a85d00;
   --sans: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -33,7 +33,7 @@ const CSS = `
     color-scheme: dark;
     --page: #050505; --surface: #111212; --raise: #1a1b1b; --ink: #f5f5f2; --ink-2: #b9bab5; --muted: #8b8c88;
     --grid: #1f2021; --axis: #2c2d2e; --ring: #222324;
-    --series-1: #e0559a; --series-2: #3fae5c;
+    --series-1: #f0a6c6; --series-2: #4f9a6a;
     --good: #f5f5f2; --critical: #f0a33a;
   }
 }
@@ -41,7 +41,7 @@ const CSS = `
   color-scheme: dark;
   --page: #050505; --surface: #111212; --raise: #1a1b1b; --ink: #f5f5f2; --ink-2: #b9bab5; --muted: #8b8c88;
   --grid: #1f2021; --axis: #2c2d2e; --ring: #222324;
-  --series-1: #e0559a; --series-2: #3fae5c;
+  --series-1: #f0a6c6; --series-2: #4f9a6a;
   --good: #f5f5f2; --critical: #f0a33a;
 }
 * { box-sizing: border-box; }
@@ -133,6 +133,48 @@ code, .key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-s
 .steps h3:first-child { margin-top: 0; }
 ol li { margin-bottom: 8px; }
 .error { color: var(--critical); font-weight: 600; }
+/* Onboarding (join + you're in): one narrow column, like a phone even on a laptop. */
+main.narrow { max-width: 460px; padding-block: 48px 64px; }
+.onboard { text-align: center; margin-bottom: 22px; }
+.onboard .mark { width: 64px; height: 40px; display: block; margin: 0 auto 14px; }
+.onboard .title { margin: 10px 0 0; font-size: 36px; text-align: center; }
+.onboard .lede { margin: 8px auto 0; text-align: center; max-width: 34ch; }
+.form { padding: 20px; border-radius: 26px; }
+.form label:first-of-type { margin-top: 0; }
+.form input[type="text"], .form input:not([type]) { padding: 13px 14px; }
+.form input::placeholder { color: var(--muted); }
+.tiles { border: 0; padding: 0; margin: 18px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tiles legend { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; padding: 0; }
+.tile { position: relative; margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 10px 12px; border-radius: 20px;
+  background: var(--raise); cursor: pointer; font-size: 14px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.tile input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.tile svg { width: 48px; height: 48px; }
+.tile:has(input:checked) { box-shadow: inset 0 0 0 2px var(--ink); }
+.tile:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+.opt { margin: 18px 0 0; }
+.opt summary { list-style: none; cursor: pointer; font-size: 14px; color: var(--ink-2); padding: 12px 14px; border-radius: 14px; background: var(--raise); }
+.opt summary::-webkit-details-marker { display: none; }
+.opt summary span { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.opt[open] summary { margin-bottom: 10px; }
+.hint { color: var(--muted); font-size: 13px; margin: 6px 2px 0; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+button.wide { width: 100%; margin-top: 20px; padding: 15px; font-size: 16px; }
+.foot { color: var(--muted); font-size: 13px; text-align: center; margin: 16px 12px 0; }
+.steps { list-style: none; counter-reset: step; padding: 6px 20px; border-radius: 26px; margin: 0; }
+.steps > li { counter-increment: step; padding: 16px 0 16px 40px; position: relative; border-bottom: 1px solid var(--grid); margin: 0; }
+.steps > li:last-child { border-bottom: 0; }
+.steps > li::before { content: counter(step); position: absolute; left: 0; top: 15px; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--ink); color: var(--page); font-weight: 800; font-size: 13px; display: grid; place-items: center; }
+.steps h3 { font-size: 16px; }
+.steps .field { margin: 12px 2px 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.copy { display: flex; gap: 8px; align-items: center; margin-top: 8px; padding: 6px 6px 6px 12px; border-radius: 14px; background: var(--raise); }
+.copy code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+.copy .pill { flex: none; background: var(--ink); color: var(--page); }
+.links2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.go { display: block; padding: 16px; border-radius: 22px; background: var(--surface); text-decoration: none; }
+.go b { display: block; font-size: 16px; }
+.go span { display: block; color: var(--muted); font-size: 13px; margin-top: 4px; }
+.go:hover { background: var(--raise); }
 fieldset.colors { border: 0; padding: 0; margin: 14px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
 fieldset.colors legend { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; padding: 0; }
 fieldset.colors label { margin: 0; display: flex; align-items: center; gap: 4px; padding: 10px 16px; border-radius: 999px; background: var(--raise);
@@ -143,14 +185,14 @@ fieldset.colors label:has(input:checked) { box-shadow: inset 0 0 0 2px var(--ink
 .title { font: 800 28px/1.1 var(--sans); font-stretch: 85%; margin: 6px 4px 0; }
 `;
 
-function layout(title: string, body: string, script = ""): Response {
+function layout(title: string, body: string, script = "", mainClass = ""): Response {
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>${esc(title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
 <style>${CSS}</style></head>
-<body><main>${body}</main>${script}</body></html>`;
+<body><main${mainClass ? ` class="${mainClass}"` : ""}>${body}</main>${script}</body></html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 
@@ -176,49 +218,78 @@ function mealBlock(m: db.MealWithItems, opts: { owner?: string; color?: string; 
 
 // ---------- join ----------
 
+/** Two interlocking rings, pink and green: the mark for the onboarding pages. */
+const MARK = `<svg class="mark" viewBox="0 0 64 40" aria-hidden="true">
+  <circle cx="20" cy="20" r="15" fill="none" stroke="var(--series-1)" stroke-width="5" stroke-linecap="round" stroke-dasharray="70 100" transform="rotate(-90 20 20)"/>
+  <circle cx="44" cy="20" r="15" fill="none" stroke="var(--series-2)" stroke-width="5" stroke-linecap="round" stroke-dasharray="52 100" transform="rotate(-90 44 20)"/>
+</svg>`;
+
+function colorTile(value: "pink" | "green", label: string, series: string, arc: number): string {
+  return `<label class="tile"><input type="radio" name="color" value="${value}" required>
+    <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="18" fill="none" stroke="var(--axis)" stroke-width="6"/>
+      <circle cx="24" cy="24" r="18" fill="none" stroke="var(${series})" stroke-width="6" stroke-linecap="round" stroke-dasharray="${arc} 120" transform="rotate(-90 24 24)"/></svg>
+    <span>${label}</span></label>`;
+}
+
 export function joinPage(error = "", name = ""): Response {
   return layout(
-    "Join the bet",
-    `<h1>Health Bet</h1><p class="title">Join the bet</p>
-    <p class="lede">Get your personal key for connecting Poke. Joined before? Use the same name to get a new key. The old one stops working.</p>
-    <form method="post" class="card">
-      ${error ? `<p class="error">${esc(error)}</p>` : ""}
-      <label for="code">Join code</label><input id="code" name="code" required autocomplete="off">
-      <label for="name">Your name</label><input id="name" name="name" required maxlength="40" value="${esc(name)}">
-      <fieldset class="colors"><legend>Your color</legend>
-        <label><input type="radio" name="color" value="pink" required><span class="swatch" style="background:var(--series-1)"></span>Pink</label>
-        <label><input type="radio" name="color" value="green"><span class="swatch" style="background:var(--series-2)"></span>Green</label>
+    "Join Health Bet",
+    `<header class="onboard">${MARK}<h1>Health Bet</h1>
+      <p class="title">Join the bet</p>
+      <p class="lede">Food, sleep, and wake-up. Four points a day. Lowest week loses.</p></header>
+    <form method="post" class="card form">
+      ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ""}
+      <label for="code">Join code</label><input id="code" name="code" required autocomplete="off" autocapitalize="off" placeholder="From whoever set this up">
+      <label for="name">Your name</label><input id="name" name="name" required maxlength="40" value="${esc(name)}" placeholder="First name is fine" autocomplete="given-name">
+      <fieldset class="tiles"><legend>Your color</legend>
+        ${colorTile("pink", "Pink", "--series-1", 85)}${colorTile("green", "Green", "--series-2", 60)}
       </fieldset>
-      <label for="poke">Poke API key <span class="muted">(optional, for recaps by text)</span></label>
-      <input id="poke" name="poke" autocomplete="off" placeholder="From Poke's Kitchen → API keys">
-      <button type="submit">Get my key</button>
-    </form>`,
+      <details class="opt"><summary>Want recap texts from Poke? <span>Add your Poke API key</span></summary>
+        <label for="poke" class="sr">Poke API key</label>
+        <input id="poke" name="poke" autocomplete="off" placeholder="Paste a key from Poke Kitchen → API Keys">
+        <p class="hint">Gets you a 10am recap, a 9pm check-in, and the Monday verdict by text.</p>
+      </details>
+      <button type="submit" class="wide">Get my key</button>
+    </form>
+    <p class="foot">Joined before and lost your key? Join again with the same name. You'll get a new key and the old one stops working.</p>`,
+    "",
+    "narrow",
   );
 }
 
+const COPY_JS = `<script>
+document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+  const el = document.getElementById(b.dataset.copy);
+  try { await navigator.clipboard.writeText(el.textContent.trim()); b.textContent = "Copied"; }
+  catch { const r = document.createRange(); r.selectNodeContents(el); getSelection().removeAllRanges(); getSelection().addRange(r); b.textContent = "Selected"; }
+  setTimeout(() => (b.textContent = "Copy"), 1600);
+}));
+</script>`;
+
 export function joinSuccess(origin: string, name: string, apiKey: string, boardToken: string, meToken: string, hasPoke: boolean): Response {
   const mcpUrl = `${origin}/mcp`;
+  const copyRow = (id: string, value: string) =>
+    `<div class="copy"><code id="${id}">${esc(value)}</code><button type="button" class="pill" data-copy="${id}">Copy</button></div>`;
   return layout(
     "You're in",
-    `<h1>Health Bet</h1><p class="title">You're in, ${esc(name)}</p>
-    <p class="lede">Save your key now. It's only shown once.</p>
-    <div class="card steps">
-      <h3>Your API key</h3><p><span class="key">${esc(apiKey)}</span></p>
-      <h3>Connect Poke</h3>
-      <ol>
-        <li>Open <a href="https://poke.com/integrations/new">poke.com/integrations/new</a>.</li>
-        <li>Name: <code>Health Bet</code></li>
-        <li>MCP Server URL: <span class="key">${esc(mcpUrl)}</span></li>
-        <li>API Key: paste your key from above.</li>
-        <li>Text Poke something like <em>"set my goal: cut, 1700 cal, 120g protein, 45g fat"</em>, then log your first meal.</li>
-        <li>Poke can always give you your private page link: just ask "what's my private page?"</li>
-      </ol>
-      ${hasPoke ? "" : `<p class="muted">You didn't add a Poke API key, so you won't get the 10am recap and 9pm check-in by text. Come back here with the same name to add one.</p>`}
-      <h3>Your private page</h3>
-      <p>All your meals, macros, and weight. Only for you, so don't share it: <a href="/me/${esc(meToken)}">${esc(origin)}/me/${esc(meToken)}</a></p>
-      <h3>Scoreboard</h3>
-      <p>The shared page for you and your friend: <a href="/b/${esc(boardToken)}">${esc(origin)}/b/${esc(boardToken)}</a></p>
-    </div>`,
+    `<header class="onboard">${MARK}<h1>Health Bet</h1>
+      <p class="title">You're in, ${esc(name)}</p>
+      <p class="lede">Three steps and you're logging.</p></header>
+    <ol class="card steps">
+      <li><h3>Save your key</h3><p class="hint">It's only shown this once. Keep it in your notes app.</p>${copyRow("key", apiKey)}</li>
+      <li><h3>Connect Poke</h3><p class="hint">Open <a href="https://poke.com/integrations/new">poke.com/integrations/new</a>, name it <b>Health Bet</b>, and paste:</p>
+        <p class="field">MCP Server URL</p>${copyRow("mcp", mcpUrl)}
+        <p class="field">API Key</p><p class="hint">Your key from step 1.</p></li>
+      <li><h3>Text Poke your goal</h3><p class="hint">Something like <em>"set my goal: cut, 1700 cal, 120g protein, 45g fat"</em>. Then text it your next meal.</p></li>
+    </ol>
+    ${hasPoke ? "" : `<p class="foot">No Poke API key added, so no recap texts. Join again with the same name anytime to add one.</p>`}
+    <div class="links2">
+      <a class="go" href="/me/${esc(meToken)}"><b>My page</b><span>Your meals, macros, weight. Just for you.</span></a>
+      <a class="go" href="/b/${esc(boardToken)}"><b>Scoreboard</b><span>Shared with your friend. Send them this link.</span></a>
+    </div>
+    <p class="foot">Lost these links? Ask Poke "what's my private page?"</p>`,
+    COPY_JS,
+    "narrow",
   );
 }
 
