@@ -66,12 +66,13 @@ async function handleJoin(request: Request, env: Env, origin: string): Promise<R
   const code = String(form.get("code") ?? "").trim();
   const name = String(form.get("name") ?? "").trim().slice(0, 40);
   const poke = String(form.get("poke") ?? "").trim() || null;
+  const color = form.get("color") === "green" ? "green" : form.get("color") === "pink" ? "pink" : null;
   if (!env.JOIN_CODE || code !== env.JOIN_CODE) return joinPage("That join code isn't right.", name);
   if (!name) return joinPage("Enter your name.", name);
 
   const apiKey = `hb_${randomToken(24)}`;
   const meToken = randomToken(18);
-  await db.joinPlayer(env.DB, name, await db.sha256(apiKey), meToken, poke);
+  await db.joinPlayer(env.DB, name, await db.sha256(apiKey), meToken, poke, color);
 
   let boardToken = await db.getSetting(env.DB, "board_token");
   if (!boardToken) {

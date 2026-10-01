@@ -4,6 +4,7 @@ CREATE TABLE players (
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
   api_key_hash TEXT NOT NULL UNIQUE,   -- SHA-256 of the key their agent sends as a Bearer token
   private_token TEXT NOT NULL UNIQUE,  -- link to the player's own page (meals, macros, weight)
+  color TEXT CHECK (color IN ('pink', 'green')),
   poke_api_key TEXT,                   -- optional: lets the app send them recaps through Poke
   goal_type TEXT CHECK (goal_type IN ('cut', 'bulk')),
   calorie_target INTEGER,

@@ -12,89 +12,143 @@ export function esc(s: unknown): string {
 
 const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
 
-// Player colors: categorical slots 1 and 2, validated against the dark surface.
+// Player colors: pink (Dara) and green (Mal), validated against both theme surfaces.
 const SERIES = ["--series-1", "--series-2"];
 const seriesVar = (i: number) => `var(${SERIES[i % SERIES.length]})`;
 
 const CSS = `
-/* Always dark, by choice: same look on every phone. */
+/* Sport-watch look: panels like watch faces, big condensed numerals, small spaced-out labels.
+   Follows the phone's light/dark setting. Dara is pink, Mal is green (validated per theme).
+   Status never uses a player hue: hits are a plain check in ink, misses are amber. */
 :root {
+  color-scheme: light;
+  --page: #efefec; --surface: #ffffff; --raise: #f4f4f1; --ink: #0d0d0c; --ink-2: #4a4a46; --muted: #73736d;
+  --grid: #ebebe7; --axis: #d6d6d0; --ring: #e4e4df;
+  --series-1: #e05a9a; --series-2: #18803f;
+  --good: #0d0d0c; --critical: #a85d00;
+  --sans: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #050505; --surface: #111212; --raise: #1a1b1b; --ink: #f5f5f2; --ink-2: #b9bab5; --muted: #8b8c88;
+    --grid: #1f2021; --axis: #2c2d2e; --ring: #222324;
+    --series-1: #e0559a; --series-2: #3fae5c;
+    --good: #f5f5f2; --critical: #f0a33a;
+  }
+}
+:root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
-  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
-  --series-1: #3987e5; --series-2: #d95926;
-  --good: #0ca30c; --critical: #e66767;
+  --page: #050505; --surface: #111212; --raise: #1a1b1b; --ink: #f5f5f2; --ink-2: #b9bab5; --muted: #8b8c88;
+  --grid: #1f2021; --axis: #2c2d2e; --ring: #222324;
+  --series-1: #e0559a; --series-2: #3fae5c;
+  --good: #f5f5f2; --critical: #f0a33a;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 var(--sans); }
+main { max-width: 760px; margin: 0 auto; padding-block: 18px 56px; padding-inline: 16px; }
 a { color: inherit; }
-h1 { font-size: 22px; margin: 0; }
-h2 { font-size: 16px; margin: 28px 0 10px; }
-h3 { font-size: 15px; margin: 0; }
-nav { display: flex; gap: 16px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; margin-bottom: 16px; }
-nav .links a { color: var(--ink-2); text-decoration: none; margin-left: 14px; }
-nav .links a[aria-current] { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
-.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 16px; }
+h1 { font: 800 15px/1 var(--sans); font-stretch: 112%; letter-spacing: 0.14em; text-transform: uppercase; margin: 0; }
+h2 { font: 600 11px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 26px 4px 10px; }
+h3 { font: 700 15px/1.2 var(--sans); margin: 0; }
+.big, .v { font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+nav { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 18px; }
+nav .links { display: flex; background: var(--surface); border-radius: 999px; padding: 3px; }
+nav .links a { color: var(--muted); text-decoration: none; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+nav .links a[aria-current] { color: var(--ink); background: var(--raise); }
+.card { background: var(--surface); border-radius: 22px; padding: 16px; }
 .muted { color: var(--muted); }
 .sub { color: var(--ink-2); }
-.hero { display: flex; gap: 12px; flex-wrap: wrap; }
-.hero .card { flex: 1 1 200px; }
-.hero .pts { font-size: 48px; font-weight: 650; line-height: 1.1; }
-.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
-.banner { margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--ring); }
-.players { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-.meter { margin: 12px 0 0; }
-.meter .row { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
-.meter .row .v { font-variant-numeric: tabular-nums; }
-.track { position: relative; height: 8px; border-radius: 4px; margin-top: 4px; overflow: hidden; }
-.track::before { content: ""; position: absolute; inset: 0; background: var(--c); opacity: 0.16; }
-.fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--c); }
-.ok { color: var(--good); font-weight: 600; }
-.bad { color: var(--critical); font-weight: 600; }
+.date { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 4px 10px; }
+.faces { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.face { background: var(--surface); border-radius: 26px; padding: 16px 12px 14px; text-align: center; min-width: 0; }
+.face svg { width: 100%; max-width: 150px; height: auto; display: block; margin: 0 auto; }
+.face .n { font-weight: 700; font-stretch: 112%; letter-spacing: 0.08em; text-transform: uppercase; font-size: 13px; margin-top: 8px; }
+.face .d { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+.banner { margin-top: 10px; padding: 12px 16px; border-radius: 18px; background: var(--surface); font-size: 14px; color: var(--ink-2); }
+.banner strong { color: var(--ink); }
+.players { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+.pcard { background: var(--surface); border-radius: 22px; padding: 14px; }
+.pcard .head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 2px 12px; }
+.pcard .head .t { font-size: 13px; color: var(--muted); font-weight: 600; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--ring); border-radius: 16px; overflow: hidden; }
+.stat { background: var(--raise); padding: 10px 12px 11px; min-width: 0; }
+.stat .k { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+.stat .v { font-size: 26px; line-height: 1.15; }
+.stat .v small { font-size: 13px; color: var(--muted); font-weight: 500; font-stretch: 100%; letter-spacing: 0; }
+.stat .s { font-size: 12px; font-weight: 600; color: var(--muted); }
+.ok { color: var(--good); font-weight: 700; }
+.ok::before { content: "✓ "; }
+.bad { color: var(--critical); font-weight: 700; }
+.bad::before { content: "▲ "; font-size: 0.85em; }
 table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
-th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); font-size: 14px; white-space: nowrap; }
-@media (max-width: 480px) { th, td { padding: 6px 4px; } .wk th.n, .wk td.n { padding: 6px 3px; } }
-th { color: var(--ink-2); font-weight: 600; }
+th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--grid); font-size: 14px; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+@media (max-width: 480px) { th, td { padding: 9px 4px; } .wk th.n, .wk td.n { padding: 9px 3px; } }
+th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
 td.n, th.n { text-align: right; }
+td.p4 { color: var(--ink); font-weight: 800; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.wk td.n { font-weight: 700; font-stretch: 85%; font-size: 16px; }
 .table-wrap { overflow-x: auto; }
-.meal { padding: 12px 0; border-bottom: 1px solid var(--grid); }
-.meal:last-child { border-bottom: 0; }
-.meal ul { margin: 6px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
-.meal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-.meal-head form { margin: 0; }
-.meal-head button { margin: 0; padding: 4px 12px; font-size: 13px; background: var(--page); color: var(--ink); border: 1px solid var(--axis); }
-.day-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 28px 0 10px; }
+.rules { color: var(--muted); font-size: 12px; margin: 10px 2px 0; }
+.meal { padding: 12px 2px; border-bottom: 1px solid var(--grid); }
+.meal:first-child { padding-top: 2px; }
+.meal:last-child { border-bottom: 0; padding-bottom: 2px; }
+.meal ul { margin: 6px 0 0; padding-left: 16px; color: var(--ink-2); font-size: 14px; }
+.meal ul .muted { font-variant-numeric: tabular-nums; }
+.meal .tot { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; margin-top: 2px; }
+.meal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; }
+.meal-head form, .day-head form { margin: 0; }
+.pill, .meal-head button, .day-head button { margin: 0; padding: 6px 14px; font: 600 13px/1 var(--sans); border-radius: 999px; border: 0; background: var(--raise); color: var(--ink); cursor: pointer; }
+.day-head button { background: var(--ink); color: var(--page); }
+.meal-head button:hover, .day-head button:hover { filter: brightness(1.15); }
+.day-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 26px 4px 10px; }
 .day-head h2 { margin: 0; }
-.day-head form { margin: 0; }
-.day-head button { margin: 0; padding: 6px 14px; font-size: 13px; }
-.chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--ring); color: var(--ink-2); }
-.private-note { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--ring); background: var(--surface); color: var(--ink-2); font-size: 14px; }
-.chips a { display: inline-block; padding: 4px 12px; border: 1px solid var(--ring); border-radius: 999px; text-decoration: none; color: var(--ink-2); margin-right: 6px; }
-.chips a[aria-current] { color: var(--ink); border-color: var(--ink); }
-.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.chip { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--raise); color: var(--ink-2); margin-left: 6px; }
+.chip.on { color: var(--ink); background: var(--axis); }
+.private-note { margin: 0 0 12px; padding: 12px 16px; border-radius: 18px; background: var(--surface); color: var(--ink-2); font-size: 14px; }
+.chips { display: flex; gap: 6px; }
+.chips a { padding: 6px 14px; border-radius: 999px; text-decoration: none; color: var(--muted); background: var(--surface); font-size: 13px; font-weight: 600; }
+.chips a[aria-current] { color: var(--page); background: var(--ink); }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+.charts .card h3 { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 6px; }
+.charts .card h3 .muted { text-transform: none; letter-spacing: 0; }
 .chart { position: relative; height: 190px; outline: none; }
-.chart:focus-visible { box-shadow: 0 0 0 2px var(--ink); border-radius: 6px; }
-.chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.chart:focus-visible { box-shadow: 0 0 0 2px var(--ink); border-radius: 8px; }
+.chart svg { display: block; width: 100%; height: 100%; overflow: visible; font-family: var(--sans); }
 .chart .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
-.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--ring); border-radius: 8px;
-  padding: 6px 10px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); white-space: nowrap; display: none; z-index: 2; }
-.tip strong { display: block; font-size: 15px; }
-details { margin-top: 10px; }
-summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
-form label { display: block; margin: 14px 0 4px; font-weight: 600; }
-input { width: 100%; padding: 10px 12px; font: inherit; border-radius: 8px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); }
-button { margin-top: 18px; padding: 10px 18px; font: inherit; font-weight: 600; border-radius: 8px; border: 0; background: var(--ink); color: var(--surface); cursor: pointer; }
+.tip { position: absolute; pointer-events: none; background: var(--raise); border-radius: 12px;
+  padding: 7px 11px; font-size: 12px; white-space: nowrap; display: none; z-index: 2; }
+.tip strong { display: block; font-size: 17px; font-weight: 800; font-stretch: 80%; }
+details { margin: 10px 4px 0; }
+summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+form label { display: block; margin: 14px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+input { width: 100%; padding: 12px 14px; font: inherit; border-radius: 14px; border: 1px solid var(--axis); background: var(--raise); color: var(--ink); }
+input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+button { margin-top: 20px; padding: 12px 22px; font: 700 15px/1 var(--sans); border-radius: 999px; border: 0; background: var(--ink); color: var(--page); cursor: pointer; }
 code, .key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
-.key { display: block; padding: 10px 12px; border-radius: 8px; background: var(--page); border: 1px solid var(--ring); word-break: break-all; user-select: all; }
+.key { display: block; padding: 12px 14px; border-radius: 14px; background: var(--raise); word-break: break-all; user-select: all; }
+.steps h3 { margin-top: 18px; }
+.steps h3:first-child { margin-top: 0; }
 ol li { margin-bottom: 8px; }
 .error { color: var(--critical); font-weight: 600; }
+fieldset.colors { border: 0; padding: 0; margin: 14px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
+fieldset.colors legend { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; padding: 0; }
+fieldset.colors label { margin: 0; display: flex; align-items: center; gap: 4px; padding: 10px 16px; border-radius: 999px; background: var(--raise);
+  font-size: 14px; letter-spacing: 0; text-transform: none; color: var(--ink); font-weight: 600; cursor: pointer; }
+fieldset.colors input { width: auto; margin: 0 6px 0 0; accent-color: var(--ink); }
+fieldset.colors label:has(input:checked) { box-shadow: inset 0 0 0 2px var(--ink); }
+.lede { color: var(--ink-2); margin: 8px 4px 16px; }
+.title { font: 800 28px/1.1 var(--sans); font-stretch: 85%; margin: 6px 4px 0; }
 `;
 
 function layout(title: string, body: string, script = ""): Response {
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>${esc(title)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
 <style>${CSS}</style></head>
 <body><main>${body}</main>${script}</body></html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
@@ -110,13 +164,13 @@ function nav(token: string, current: "board" | "history" | "me", meToken?: strin
 
 function mealBlock(m: db.MealWithItems, opts: { owner?: string; color?: string; full: boolean; shareForm?: string }): string {
   const t = mealTotals(m);
-  const who = opts.owner ? `<span class="swatch" style="background:${opts.color}"></span><strong>${esc(opts.owner)}</strong> · ` : "";
+  const who = opts.owner ? `<span class="swatch" style="background:${opts.color}"></span>${esc(opts.owner)} · ` : "";
   const macros = opts.full ? ` · ${t.fat}g fat · ${t.carbs}g carbs` : "";
   const item = (it: db.FoodEntry) =>
     `<li>${esc(it.description)} <span class="muted">(${it.calories} cal, ${it.protein_g}g P${opts.full ? `, ${it.fat_g}g F, ${it.carbs_g}g C` : ""})</span></li>`;
-  return `<div class="meal"><div class="meal-head"><div>${who}${m.name ? esc(m.name) : "Meal"}
-      ${opts.full ? (m.shared_at ? ' <span class="chip">shared</span>' : ' <span class="chip muted">private</span>') : ""}</div>${opts.shareForm ?? ""}</div>
-    <div class="sub" style="font-variant-numeric:tabular-nums">${fmt(t.calories)} cal · ${t.protein}g protein${macros}</div>
+  return `<div class="meal"><div class="meal-head"><div>${who}${m.name ? esc(m.name) : "Meal"}${
+      opts.full ? (m.shared_at ? '<span class="chip on">shared</span>' : '<span class="chip">private</span>') : ""}</div>${opts.shareForm ?? ""}</div>
+    <div class="tot">${fmt(t.calories)} cal · ${t.protein}g protein${macros}</div>
     <ul>${m.items.map(item).join("")}</ul></div>`;
 }
 
@@ -125,12 +179,16 @@ function mealBlock(m: db.MealWithItems, opts: { owner?: string; color?: string; 
 export function joinPage(error = "", name = ""): Response {
   return layout(
     "Join the bet",
-    `<h1>Join the bet</h1>
-    <p class="sub">Get your personal key for connecting Poke. If you've joined before, use the same name to get a new key (the old one stops working).</p>
+    `<h1>Health Bet</h1><p class="title">Join the bet</p>
+    <p class="lede">Get your personal key for connecting Poke. Joined before? Use the same name to get a new key. The old one stops working.</p>
     <form method="post" class="card">
       ${error ? `<p class="error">${esc(error)}</p>` : ""}
       <label for="code">Join code</label><input id="code" name="code" required autocomplete="off">
       <label for="name">Your name</label><input id="name" name="name" required maxlength="40" value="${esc(name)}">
+      <fieldset class="colors"><legend>Your color</legend>
+        <label><input type="radio" name="color" value="pink" required><span class="swatch" style="background:var(--series-1)"></span>Pink</label>
+        <label><input type="radio" name="color" value="green"><span class="swatch" style="background:var(--series-2)"></span>Green</label>
+      </fieldset>
       <label for="poke">Poke API key <span class="muted">(optional, for recaps by text)</span></label>
       <input id="poke" name="poke" autocomplete="off" placeholder="From Poke's Kitchen → API keys">
       <button type="submit">Get my key</button>
@@ -142,9 +200,9 @@ export function joinSuccess(origin: string, name: string, apiKey: string, boardT
   const mcpUrl = `${origin}/mcp`;
   return layout(
     "You're in",
-    `<h1>You're in, ${esc(name)} 🎉</h1>
-    <p class="sub">Save your key now. It's only shown once.</p>
-    <div class="card">
+    `<h1>Health Bet</h1><p class="title">You're in, ${esc(name)}</p>
+    <p class="lede">Save your key now. It's only shown once.</p>
+    <div class="card steps">
       <h3>Your API key</h3><p><span class="key">${esc(apiKey)}</span></p>
       <h3>Connect Poke</h3>
       <ol>
@@ -166,51 +224,68 @@ export function joinSuccess(origin: string, name: string, apiKey: string, boardT
 
 // ---------- scoreboard ----------
 
-function meter(label: string, value: string, frac: number, color: string, status: string): string {
-  const pct = Math.max(0, Math.min(1, frac)) * 100;
-  return `<div class="meter"><div class="row"><span>${label}</span><span class="v">${value} ${status}</span></div>
-    <div class="track" style="--c:${color}" role="img" aria-label="${esc(label)} ${esc(value)}"><div class="fill" style="width:${pct.toFixed(1)}%"></div></div></div>`;
+const hm = (min: number) => `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}`;
+
+function stat(k: string, v: string, status: string): string {
+  return `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${status}</div></div>`;
 }
 
 /** `full` adds the unscored macros; it's only used on the player's own private page. */
 function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, todayPts: number, full: boolean): string {
-  const lastNight = s.sleepMinutes;
   const r = db.rules(env);
-  const color = seriesVar(i);
-  const parts: string[] = [];
+  const tiles: string[] = [];
   if (p.calorie_target != null && p.goal_type) {
     const ok = calorieGoalMet(p, s, r);
-    const over = p.goal_type === "cut" && s.calories > p.calorie_target;
-    const status =
-      s.foodCount === 0 ? "" : ok ? `<span class="ok">✓</span>` : over ? `<span class="bad">▲ ${fmt(s.calories - p.calorie_target)} over</span>` : "";
-    const sign = p.goal_type === "cut" ? "≤" : "≥";
-    parts.push(meter("Calories", `${fmt(s.calories)} / ${sign}${fmt(p.calorie_target)}`, s.calories / p.calorie_target, over ? "var(--critical)" : color, status));
+    const cut = p.goal_type === "cut";
+    const gap = Math.abs(p.calorie_target - s.calories);
+    let st = '<span class="muted">Nothing logged</span>';
+    if (s.foodCount > 0) {
+      if (cut && s.calories > p.calorie_target) st = `<span class="bad">${fmt(gap)} over</span>`;
+      else if (cut) st = ok ? `<span class="ok">On target</span> · ${fmt(gap)} left` : `${fmt(gap)} left`;
+      else st = ok ? `<span class="ok">Hit</span>` : `${fmt(gap)} to go`;
+    }
+    tiles.push(stat(`Calories · ${cut ? "max" : "min"} ${fmt(p.calorie_target)}`, fmt(s.calories), st));
   }
   if (p.protein_target != null) {
     const ok = proteinGoalMet(p, s);
-    parts.push(meter("Protein", `${s.protein}g / ${p.protein_target}g`, s.protein / p.protein_target, color, ok ? `<span class="ok">✓</span>` : ""));
+    tiles.push(stat(`Protein · min ${p.protein_target}g`, `${s.protein}<small>g</small>`, ok ? '<span class="ok">Hit</span>' : `${Math.max(0, p.protein_target - s.protein)}g to go`));
   }
-  if (full && p.fat_target != null) {
-    parts.push(meter(`Fat <span class="muted">(not scored)</span>`, `${s.fat}g / ${p.fat_target}g`, s.fat / p.fat_target, color, s.fat >= p.fat_target ? `<span class="ok">✓</span>` : ""));
-  } else if (full) {
-    parts.push(`<div class="meter"><div class="row"><span>Fat <span class="muted">(not scored)</span></span><span class="v">${s.fat}g</span></div></div>`);
+  if (full) {
+    const fatSt = p.fat_target == null ? "Not scored" : s.fat >= p.fat_target ? '<span class="ok">Hit</span> · not scored' : `${p.fat_target - s.fat}g low · not scored`;
+    tiles.push(stat(p.fat_target != null ? `Fat · min ${p.fat_target}g` : "Fat", `${s.fat}<small>g</small>`, fatSt));
+    tiles.push(stat("Carbs", `${s.carbs}<small>g</small>`, "Not scored"));
   }
-  if (full) parts.push(`<div class="meter"><div class="row"><span>Carbs <span class="muted">(not scored)</span></span><span class="v">${s.carbs}g</span></div></div>`);
-  const sleepOk = lastNight != null && lastNight >= r.sleepTargetMinutes;
-  parts.push(
-    lastNight != null
-      ? meter("Sleep last night", `${prettyDuration(lastNight)} / ${prettyDuration(r.sleepTargetMinutes)}`, lastNight / r.sleepTargetMinutes, color, sleepOk ? `<span class="ok">✓</span>` : "")
-      : `<div class="meter"><div class="row"><span>Sleep last night</span><span class="v muted">not logged</span></div></div>`,
+  const sleep = s.sleepMinutes;
+  tiles.push(
+    stat(
+      `Sleep · ${prettyDuration(r.sleepTargetMinutes).replace(" 00m", "")} goal`,
+      sleep != null ? hm(sleep) : "–",
+      sleep == null ? "Not logged" : sleep >= r.sleepTargetMinutes ? '<span class="ok">Hit</span>' : `<span class="bad">${prettyDuration(r.sleepTargetMinutes - sleep).replace(" 00m", "")} short</span>`,
+    ),
   );
-  const by = `by ${prettyClock(wakeTarget(day, r))}`;
-  const wake = s.wakeAt
-    ? `${prettyTime(s.wakeAt, env.GAME_TZ)} ${wakeGoalMet(day, s, r) ? `<span class="ok">✓</span>` : `<span class="bad">${wakeMinutes(s.wakeAt, r.tz) - wakeTarget(day, r)} min late</span>`}`
-    : `<span class="muted">not logged</span>`;
-  parts.push(`<div class="meter"><div class="row"><span>Up ${by}</span><span class="v">${wake}</span></div></div>`);
-  const goal = p.goal_type ? `${p.goal_type}` : "no goal yet";
-  return `<div class="card"><div class="row" style="display:flex;justify-content:space-between;align-items:baseline">
-      <h3><span class="swatch" style="background:${color}"></span>${esc(p.name)} <span class="muted">· ${goal}</span></h3>
-      <span class="sub">${todayPts}/4 today</span></div>${parts.join("")}</div>`;
+  const target = wakeTarget(day, r);
+  const late = s.wakeAt ? wakeMinutes(s.wakeAt, r.tz) - target : 0;
+  tiles.push(
+    stat(
+      `Up by ${prettyClock(target).replace(" AM", "").replace(" PM", "")}`,
+      s.wakeAt ? prettyTime(s.wakeAt, env.GAME_TZ).replace(/ (AM|PM)/, (m) => `<small>${m.toLowerCase()}</small>`) : "–",
+      !s.wakeAt ? "Not logged" : wakeGoalMet(day, s, r) ? '<span class="ok">On time</span>' : `<span class="bad">${late} min late</span>`,
+    ),
+  );
+  return `<div class="pcard"><div class="head"><h3><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}
+      <span class="muted" style="font-weight:500">· ${p.goal_type ?? "no goal yet"}</span></h3><span class="t">${todayPts}/4 today</span></div>
+    <div class="stats">${tiles.join("")}</div></div>`;
+}
+
+/** Watch-face ring: the arc is today's points out of 4, the number is the week total. */
+function face(name: string, i: number, weekPts: number, todayPts: number): string {
+  const C = 2 * Math.PI * 50;
+  const arc = (Math.min(todayPts, 4) / 4) * C;
+  return `<div class="face"><svg viewBox="0 0 120 120" role="img" aria-label="${esc(name)}: ${weekPts} points this week, ${todayPts} of 4 today">
+      <circle cx="60" cy="60" r="50" fill="none" stroke="var(--raise)" stroke-width="10"/>
+      ${arc > 0 ? `<circle cx="60" cy="60" r="50" fill="none" stroke="${seriesVar(i)}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${arc.toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 60 60)"/>` : ""}
+      <text x="60" y="71" text-anchor="middle" fill="var(--ink)" font-family="Archivo, sans-serif" font-weight="800" font-size="36" style="font-stretch:75%">${weekPts}</text>
+    </svg><div class="n">${esc(name)}</div><div class="d">${todayPts}/4 today</div></div>`;
 }
 
 export async function boardPage(env: Env, token: string, now: Date): Promise<Response> {
@@ -229,12 +304,8 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
   };
   const [sharedHtml, sharedYesterday] = await Promise.all([sharedFor(today), sharedFor(addDays(today, -1))]);
 
-  const hero = board.rows
-    .map(
-      (row, i) => `<div class="card"><div class="sub"><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(row.player.name)}</div>
-        <div class="pts">${row.points}</div><div class="muted">points this week · ${prettyDuration(row.sleepMinutes)} sleep</div></div>`,
-    )
-    .join("");
+  const todayPts = players.map((p, i) => scoreDay(p, stats[i], r, today).points);
+  const hero = board.rows.map((row, i) => face(row.player.name, i, row.points, todayPts[i])).join("");
   let verdict = "";
   if (board.rows.length >= 2) {
     const tied = board.rows.every((row) => row.points === board.rows[0].points);
@@ -245,28 +316,28 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
   const banner = `<div class="banner">${verdict} ${punishment ? `Loser's punishment: <strong>${esc(punishment)}</strong>` : `<span class="muted">No punishment set yet. Text your agent "set the punishment to ..."</span>`}</div>`;
 
   const cards = players
-    .map((p, i) => playerCard(env, p, i, stats[i], today, scoreDay(p, stats[i], r, today).points, false))
+    .map((p, i) => playerCard(env, p, i, stats[i], today, todayPts[i], false))
     .join("");
 
   const dayHeads = board.days.map((d) => `<th class="n" title="${prettyDay(d)}">${prettyDay(d).slice(0, 2)}</th>`).join("");
   const weekRows = board.rows
     .map(
       (row, i) => `<tr><td><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(row.player.name)}</td>
-        ${row.perDay.map((v) => `<td class="n">${v == null ? '<span class="muted">·</span>' : v}</td>`).join("")}<td class="n"><strong>${row.points}</strong></td></tr>`,
+        ${row.perDay.map((v) => `<td class="n${v === 4 ? " p4" : ""}">${v == null ? '<span class="muted">·</span>' : v}</td>`).join("")}<td class="n"><strong>${row.points}</strong></td></tr>`,
     )
     .join("");
 
   return layout(
     "Scoreboard",
     `${nav(token, "board")}
-    <p class="sub">Week of ${prettyDay(start)} · ${prettyDay(today)}</p>
-    <div class="hero">${hero || '<div class="card">No players yet.</div>'}</div>${banner}
+    <div class="date"><span>${prettyDay(today)}</span><span>Week of ${prettyDay(start).slice(4)}</span></div>
+    <div class="faces">${hero || '<div class="card">No players yet.</div>'}</div>${banner}
     <h2>Today</h2><div class="players">${cards}</div>
     <h2>This week</h2><div class="card table-wrap"><table class="wk"><thead><tr><th>Player</th>${dayHeads}<th class="n">Total</th></tr></thead><tbody>${weekRows}</tbody></table>
-      <p class="muted" style="margin:8px 0 0;font-size:13px">1 point each for calories, protein, ${prettyDuration(r.sleepTargetMinutes)}+ sleep, and being up by ${prettyClock(r.wakeWeekday)} (weekends ${prettyClock(r.wakeWeekend)}, ${r.wakeGraceMinutes} min grace). Lowest weekly total loses.</p></div>
+      <p class="rules">1 point each for calories, protein, ${prettyDuration(r.sleepTargetMinutes)}+ sleep, and being up by ${prettyClock(r.wakeWeekday)} (weekends ${prettyClock(r.wakeWeekend)}, ${r.wakeGraceMinutes} min grace). Lowest weekly total loses.</p></div>
     <h2>Shared meals today</h2><div class="card">${sharedHtml || '<p class="muted" style="margin:0">Nobody has shared a meal today. Meals are private until you share one from your page or tell Poke "share my lunch".</p>'}</div>
     ${sharedYesterday ? `<h2>Shared yesterday</h2><div class="card">${sharedYesterday}</div>` : ""}
-    <p class="muted" style="font-size:13px">Shared here: points, calorie and protein totals, sleep, wake-up times, and meals you choose to share. Fat, carbs, weight, and unshared meals stay on each player's private page.</p>`,
+    <p class="rules">Shared here: points, calorie and protein totals, sleep, wake-up times, and meals you choose to share. Fat, carbs, weight, and unshared meals stay on each player's private page.</p>`,
     `<script>setTimeout(() => location.reload(), 5 * 60 * 1000)</script>`,
   );
 }

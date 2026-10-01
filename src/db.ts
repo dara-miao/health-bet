@@ -92,14 +92,22 @@ export async function sha256(text: string): Promise<string> {
 }
 
 /** Creates a player, or re-links an existing one (same name) to a new API key and private link. */
-export async function joinPlayer(db: D1Database, name: string, apiKeyHash: string, privateToken: string, pokeKey: string | null) {
+export async function joinPlayer(
+  db: D1Database,
+  name: string,
+  apiKeyHash: string,
+  privateToken: string,
+  pokeKey: string | null,
+  color: "pink" | "green" | null = null,
+) {
   await db
     .prepare(
-      `INSERT INTO players (name, api_key_hash, private_token, poke_api_key) VALUES (?, ?, ?, ?)
+      `INSERT INTO players (name, api_key_hash, private_token, poke_api_key, color) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (name) DO UPDATE SET api_key_hash = excluded.api_key_hash, private_token = excluded.private_token,
-         poke_api_key = COALESCE(excluded.poke_api_key, players.poke_api_key)`,
+         poke_api_key = COALESCE(excluded.poke_api_key, players.poke_api_key),
+         color = COALESCE(excluded.color, players.color)`,
     )
-    .bind(name, apiKeyHash, privateToken, pokeKey)
+    .bind(name, apiKeyHash, privateToken, pokeKey, color)
     .run();
 }
 
@@ -121,7 +129,10 @@ export async function getPlayer(db: D1Database, id: number): Promise<Player | nu
 }
 
 export async function listPlayers(db: D1Database): Promise<Player[]> {
-  const { results } = await db.prepare(`SELECT ${PLAYER_COLS} FROM players ORDER BY id`).all<Player>();
+  // Pink first, then green: the page colors follow this order.
+  const { results } = await db
+    .prepare(`SELECT ${PLAYER_COLS} FROM players ORDER BY CASE color WHEN 'pink' THEN 0 WHEN 'green' THEN 1 ELSE 2 END, id`)
+    .all<Player>();
   return results;
 }
 
