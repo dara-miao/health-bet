@@ -70,11 +70,15 @@ Meals: leave meal_id null to start a new meal. Pass an existing meal_id (from ge
   {
     name: "share_meal",
     description:
-      "Share one of the player's meals with the other players (they'll see its foods, calories and protein on the scoreboard), or unshare it. Only when the player asks, e.g. 'share my dinner with Mal'.",
+      "Share the player's meals with the other players (they'll see the foods, calories and protein on the scoreboard), or unshare them. Only when the player asks: 'share my dinner with Mal' (one meal_id) or 'share all my meals today' (all_day).",
     inputSchema: {
       type: "object",
-      properties: { meal_id: { type: "integer" }, shared: { type: "boolean", description: "false to unshare" } },
-      required: ["meal_id", "shared"],
+      properties: {
+        meal_id: { type: ["integer", "null"], description: "One meal. Null when using all_day." },
+        all_day: { type: ["string", "null"], description: "YYYY-MM-DD to share every meal from that day (today's date from get_status for 'all my meals')." },
+        shared: { type: "boolean", description: "false to unshare" },
+      },
+      required: ["shared"],
     },
   },
   {
@@ -218,6 +222,13 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
 
     case "share_meal": {
       const shared = args.shared !== false;
+      if (args.all_day) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(args.all_day)) throw new ToolError("all_day must be YYYY-MM-DD.");
+        const n = await db.setDayShared(env.DB, player.id, args.all_day, shared, now.toISOString());
+        if (n === 0) throw new ToolError(`${player.name} has no meals logged on ${args.all_day}.`);
+        return `${n} meal${n > 1 ? "s" : ""} from ${args.all_day} ${shared ? "shared on the scoreboard" : "made private again"}.`;
+      }
+      if (args.meal_id == null) throw new ToolError("Pass meal_id for one meal, or all_day for a whole day.");
       if (!(await db.setMealShared(env.DB, player.id, Number(args.meal_id), shared, now.toISOString()))) {
         throw new ToolError(`No meal ${args.meal_id} for ${player.name}. Call get_status for ids.`);
       }

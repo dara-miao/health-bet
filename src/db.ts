@@ -166,6 +166,15 @@ export async function setMealShared(db: D1Database, playerId: number, mealId: nu
   return res.meta.changes > 0;
 }
 
+/** Shares (or unshares) every meal the player logged on a day. Returns how many meals that is. */
+export async function setDayShared(db: D1Database, playerId: number, day: string, shared: boolean, nowIso: string) {
+  const res = await db
+    .prepare("UPDATE meals SET shared_at = ? WHERE player_id = ? AND day = ?")
+    .bind(shared ? nowIso : null, playerId, day)
+    .run();
+  return res.meta.changes;
+}
+
 export async function addFood(db: D1Database, playerId: number, mealId: number, day: string, items: FoodItem[]) {
   const stmt = db.prepare(
     `INSERT INTO food_entries (meal_id, player_id, day, description, calories, protein_g, fat_g, carbs_g)

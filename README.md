@@ -32,7 +32,7 @@ The wake-up time is when you text Poke "gm", so send it when you actually get up
 | Fat and carbs | – | ✅ |
 | Weight | – | ✅ |
 
-Meals are private until you share one: tap **Share** on your private page, or tell Poke "share my dinner". Tap **Unshare** to take it back. The daily recap sent to both of you contains only the shared fields; your 9pm check-in is just for you.
+Meals are private until you share them: tap **Share** on a meal (or **Share all** for a whole day) on your private page, or tell Poke "share my dinner" or "share all my meals today". **Unshare** takes it back. The daily recap sent to both of you contains only the shared fields; your 9pm check-in is just for you.
 
 ## What you can text Poke
 

@@ -38,7 +38,10 @@ export default {
       if (!player) return new Response("Not found", { status: 404 });
       if (me[2] && request.method === "POST") {
         const form = await request.formData();
-        await db.setMealShared(env.DB, player.id, Number(form.get("meal")), form.get("shared") === "1", new Date().toISOString());
+        const shared = form.get("shared") === "1";
+        const day = String(form.get("day") ?? "");
+        if (/^\d{4}-\d{2}-\d{2}$/.test(day)) await db.setDayShared(env.DB, player.id, day, shared, new Date().toISOString());
+        else await db.setMealShared(env.DB, player.id, Number(form.get("meal")), shared, new Date().toISOString());
         return new Response(null, { status: 303, headers: { location: `/me/${me[1]}` } });
       }
       return privatePage(env, player, me[1], (await db.getSetting(env.DB, "board_token")) ?? "", new Date());

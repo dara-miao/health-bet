@@ -64,6 +64,10 @@ td.n, th.n { text-align: right; }
 .meal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .meal-head form { margin: 0; }
 .meal-head button { margin: 0; padding: 4px 12px; font-size: 13px; background: var(--page); color: var(--ink); border: 1px solid var(--axis); }
+.day-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 28px 0 10px; }
+.day-head h2 { margin: 0; }
+.day-head form { margin: 0; }
+.day-head button { margin: 0; padding: 6px 14px; font-size: 13px; }
 .chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--ring); color: var(--ink-2); }
 .private-note { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--ring); background: var(--surface); color: var(--ink-2); font-size: 14px; }
 .chips a { display: inline-block; padding: 4px 12px; border: 1px solid var(--ring); border-radius: 999px; text-decoration: none; color: var(--ink-2); margin-right: 6px; }
@@ -219,10 +223,11 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
     db.getSetting(env.DB, "punishment"),
   ]);
   const stats = await Promise.all(players.map((p) => dayStats(env, p.id, today)));
-  const shared = await Promise.all(players.map(async (p) => (await db.mealsForDay(env.DB, p.id, today)).filter((m) => m.shared_at)));
-  const sharedHtml = players
-    .flatMap((p, i) => shared[i].map((m) => mealBlock(m, { owner: p.name, color: seriesVar(i), full: false })))
-    .join("");
+  const sharedFor = async (day: string) => {
+    const meals = await Promise.all(players.map(async (p) => (await db.mealsForDay(env.DB, p.id, day)).filter((m) => m.shared_at)));
+    return players.flatMap((p, i) => meals[i].map((m) => mealBlock(m, { owner: p.name, color: seriesVar(i), full: false }))).join("");
+  };
+  const [sharedHtml, sharedYesterday] = await Promise.all([sharedFor(today), sharedFor(addDays(today, -1))]);
 
   const hero = board.rows
     .map(
@@ -260,6 +265,7 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
     <h2>This week</h2><div class="card table-wrap"><table class="wk"><thead><tr><th>Player</th>${dayHeads}<th class="n">Total</th></tr></thead><tbody>${weekRows}</tbody></table>
       <p class="muted" style="margin:8px 0 0;font-size:13px">1 point each for calories, protein, ${prettyDuration(r.sleepTargetMinutes)}+ sleep, and being up by ${prettyClock(r.wakeWeekday)} (weekends ${prettyClock(r.wakeWeekend)}, ${r.wakeGraceMinutes} min grace). Lowest weekly total loses.</p></div>
     <h2>Shared meals today</h2><div class="card">${sharedHtml || '<p class="muted" style="margin:0">Nobody has shared a meal today. Meals are private until you share one from your page or tell Poke "share my lunch".</p>'}</div>
+    ${sharedYesterday ? `<h2>Shared yesterday</h2><div class="card">${sharedYesterday}</div>` : ""}
     <p class="muted" style="font-size:13px">Shared here: points, calorie and protein totals, sleep, wake-up times, and meals you choose to share. Fat, carbs, weight, and unshared meals stay on each player's private page.</p>`,
     `<script>setTimeout(() => location.reload(), 5 * 60 * 1000)</script>`,
   );
@@ -383,6 +389,15 @@ export async function privatePage(env: Env, player: Player, meToken: string, boa
       <button type="submit">${m.shared_at ? "Unshare" : `Share with ${esc(others)}`}</button></form>`;
   const list = (ms: db.MealWithItems[], empty: string) =>
     ms.length ? ms.map((m) => mealBlock(m, { full: true, shareForm: shareForm(m) })).join("") : `<p class="muted" style="margin:0">${empty}</p>`;
+  // "Share all" until every meal that day is shared, then "Unshare all".
+  const shareAll = (day: string, ms: db.MealWithItems[]) => {
+    if (!ms.length) return "";
+    const all = ms.every((m) => m.shared_at);
+    return `<form method="post" action="/me/${esc(meToken)}/share" class="share-all"><input type="hidden" name="day" value="${day}">
+      <input type="hidden" name="shared" value="${all ? "0" : "1"}"><button type="submit">${all ? "Unshare all" : `Share all with ${esc(others)}`}</button></form>`;
+  };
+  const dayHead = (title: string, day: string, ms: db.MealWithItems[]) =>
+    `<div class="day-head"><h2>${title}</h2>${shareAll(day, ms)}</div>`;
 
   const days = Array.from({ length: 30 }, (_, k) => addDays(today, k - 29));
   const firstDay = (await db.firstActivityDay(env.DB)) ?? today;
@@ -394,8 +409,8 @@ export async function privatePage(env: Env, player: Player, meToken: string, boa
     `${nav(boardToken, "me", meToken)}
     <p class="private-note">🔒 Only you can see this page. ${esc(others)} sees your points, calorie and protein totals, sleep, and wake-up, plus any meal you share. Don't share this link.</p>
     <div class="players">${playerCard(env, player, i, s, today, scoreDay(player, s, r, today).points, true)}</div>
-    <h2>Today's food</h2><div class="card">${list(todayMeals, "Nothing logged yet today. Text Poke what you ate.")}</div>
-    <h2>Yesterday</h2><div class="card">${list(yMeals, "Nothing logged yesterday.")}</div>
+    ${dayHead("Today's food", today, todayMeals)}<div class="card">${list(todayMeals, "Nothing logged yet today. Text Poke what you ate.")}</div>
+    ${dayHead("Yesterday", addDays(today, -1), yMeals)}<div class="card">${list(yMeals, "Nothing logged yesterday.")}</div>
     ${hist.html.replace(/<h2>.*?<\/h2>/s, "<h2>Last 30 days</h2>")}`,
     `<script type="application/json" id="chart-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
     <script>${CHART_JS}</script>`,
