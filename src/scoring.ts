@@ -1,13 +1,16 @@
 // Pure scoring rules, kept separate so they're easy to read and test.
 //
-// Each day, each player can earn up to 3 points:
+// Each day, each player can earn up to 4 points:
 //   +1 calories: cut  -> at or under calorie_target (but not under the cut floor)
 //                bulk -> at or over calorie_target
 //   +1 protein:  at or over protein_target
 //   +1 sleep:    slept at least the sleep target that night
+//   +1 wake-up:  woke up by the day's wake time (weekday or weekend) plus the grace period
 // Food points need at least one logged entry that day, so not logging isn't a free "cut" win.
 // Fat and carbs are tracked and shown but don't score.
 // Lowest weekly total loses; ties are broken by total sleep, then it's a draw.
+
+import { localParts, weekdayOf } from "./time";
 
 export type GoalType = "cut" | "bulk";
 
@@ -18,8 +21,12 @@ export interface Goal {
 }
 
 export interface Rules {
+  tz: string;
   sleepTargetMinutes: number;
   cutFloorCalories: number;
+  wakeWeekday: number; // minutes after midnight, e.g. 510 = 8:30am
+  wakeWeekend: number;
+  wakeGraceMinutes: number;
 }
 
 export interface DayStats {
@@ -29,14 +36,16 @@ export interface DayStats {
   carbs: number;
   foodCount: number;
   sleepMinutes: number | null;
+  wakeAt: string | null; // ISO time they got up (the night's sleep ends on this day)
 }
 
-export const EMPTY_DAY: DayStats = { calories: 0, protein: 0, fat: 0, carbs: 0, foodCount: 0, sleepMinutes: null };
+export const EMPTY_DAY: DayStats = { calories: 0, protein: 0, fat: 0, carbs: 0, foodCount: 0, sleepMinutes: null, wakeAt: null };
 
 export interface DayScore {
   calOk: boolean;
   proteinOk: boolean;
   sleepOk: boolean;
+  wakeOk: boolean;
   points: number;
 }
 
@@ -56,11 +65,28 @@ export function sleepGoalMet(stats: DayStats, rules: Rules): boolean {
   return stats.sleepMinutes != null && stats.sleepMinutes >= rules.sleepTargetMinutes;
 }
 
-export function scoreDay(goal: Goal, stats: DayStats, rules: Rules): DayScore {
+/** The wake-up time for a day, in minutes after midnight (Saturday and Sunday use the weekend time). */
+export function wakeTarget(day: string, rules: Rules): number {
+  const wd = weekdayOf(day);
+  return wd === 0 || wd === 6 ? rules.wakeWeekend : rules.wakeWeekday;
+}
+
+export function wakeMinutes(wakeAt: string, tz: string): number {
+  const p = localParts(new Date(wakeAt), tz);
+  return p.hour * 60 + p.minute;
+}
+
+export function wakeGoalMet(day: string, stats: DayStats, rules: Rules): boolean {
+  if (stats.wakeAt == null) return false;
+  return wakeMinutes(stats.wakeAt, rules.tz) <= wakeTarget(day, rules) + rules.wakeGraceMinutes;
+}
+
+export function scoreDay(goal: Goal, stats: DayStats, rules: Rules, day: string): DayScore {
   const calOk = calorieGoalMet(goal, stats, rules);
   const proteinOk = proteinGoalMet(goal, stats);
   const sleepOk = sleepGoalMet(stats, rules);
-  return { calOk, proteinOk, sleepOk, points: +calOk + +proteinOk + +sleepOk };
+  const wakeOk = wakeGoalMet(day, stats, rules);
+  return { calOk, proteinOk, sleepOk, wakeOk, points: +calOk + +proteinOk + +sleepOk + +wakeOk };
 }
 
 export interface WeekTotals {

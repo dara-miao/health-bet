@@ -6,13 +6,16 @@ There's no AI cost on the app side: Poke does the estimating. Hosting runs on Cl
 
 ## Rules
 
-Each day, each player earns up to 3 points:
+Each day, each player earns up to 4 points:
 
 | | Cut player | Bulk player |
 |---|---|---|
 | 🔥 Calories | **at or under** your target (but not under 1,200) | **at or over** your target |
 | 💪 Protein | at or over your target | at or over your target |
 | 😴 Sleep | at least **7 hours** | at least **7 hours** |
+| ⏰ Wake-up | up by **8:30am** weekdays, **10:30am** Sat/Sun (10 min grace) | same |
+
+The wake-up time is when you text Poke "gm", so send it when you actually get up.
 
 - Fat and carbs are tracked and shown, with an optional fat minimum and reminders, but **don't score**.
 - Not logging any food that day earns no food points.
@@ -77,6 +80,8 @@ Change these in `wrangler.toml` and push (Cloudflare redeploys automatically):
 |---|---|---|
 | `GAME_TZ` | `America/Los_Angeles` | the timezone the game runs on |
 | `SLEEP_TARGET_HOURS` | `7` | hours needed for the sleep point |
+| `WAKE_WEEKDAY` / `WAKE_WEEKEND` | `08:30` / `10:30` | be up by this time for the wake-up point |
+| `WAKE_GRACE_MINUTES` | `10` | minutes after the wake-up time that still count |
 | `CUT_FLOOR_CALORIES` | `1200` | a cut day under this never earns the calorie point |
 | `POST_DELAY_MINUTES` | `30` | how long a meal stays private after its last edit |
 

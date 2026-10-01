@@ -1,7 +1,7 @@
 import * as db from "./db";
 import type { Env, MealWithItems, Player } from "./db";
-import { EMPTY_DAY, calorieGoalMet, proteinGoalMet, scoreDay, sleepGoalMet, weekLoser, type DayStats } from "./scoring";
-import { addDays, gameDay, localParts, prettyDay, prettyDuration, prettyTime, weekDays, weekStart } from "./time";
+import { EMPTY_DAY, calorieGoalMet, proteinGoalMet, scoreDay, sleepGoalMet, wakeMinutes, wakeTarget, weekLoser, type DayStats } from "./scoring";
+import { addDays, gameDay, localParts, prettyClock, prettyDay, prettyDuration, prettyTime, weekDays, weekStart } from "./time";
 
 const MAX_SLEEP_MINUTES = 16 * 60;
 
@@ -38,10 +38,11 @@ export async function logNight(env: Env, player: Player, bed: Date, wake: Date):
   }
   const day = sleepDay(wake, env.GAME_TZ);
   await db.saveSleep(env.DB, player.id, { day, bed_at: bed.toISOString(), wake_at: wake.toISOString(), minutes });
-  const target = db.rules(env).sleepTargetMinutes;
+  const r = db.rules(env);
+  const target = r.sleepTargetMinutes;
   const verdict =
     minutes >= target ? "Sleep point earned ✅" : `${prettyDuration(target - minutes)} short of the ${prettyDuration(target)} target ❌`;
-  return `Logged ${prettyDuration(minutes)} of sleep (${prettyTime(bed.toISOString(), env.GAME_TZ)} to ${prettyTime(wake.toISOString(), env.GAME_TZ)}) for ${prettyDay(day)}. ${verdict}`;
+  return `Logged ${prettyDuration(minutes)} of sleep (${prettyTime(bed.toISOString(), env.GAME_TZ)} to ${prettyTime(wake.toISOString(), env.GAME_TZ)}) for ${prettyDay(day)}. ${verdict} ${wakeLine(env, day, wake.toISOString())}`;
 }
 
 // ---------- meals ----------
@@ -68,7 +69,16 @@ export function goalLine(p: Player): string {
 }
 
 /** `final` = the day is over (recaps); otherwise a cut day under the floor is just "in progress". */
-export function statusLines(env: Env, p: Player, s: DayStats, final = false): string[] {
+export function wakeLine(env: Env, day: string, wakeAt: string | null): string {
+  const r = db.rules(env);
+  const target = wakeTarget(day, r);
+  const by = `up by ${prettyClock(target)}, ${r.wakeGraceMinutes} min grace`;
+  if (wakeAt == null) return `⏰ no wake-up logged (${by})`;
+  const late = wakeMinutes(wakeAt, r.tz) - target;
+  return `⏰ up at ${prettyTime(wakeAt, r.tz)} ${late <= r.wakeGraceMinutes ? "✅" : `❌ (${late} min late; ${by})`}`;
+}
+
+export function statusLines(env: Env, p: Player, s: DayStats, day: string, final = false): string[] {
   const r = db.rules(env);
   const lines: string[] = [];
   if (p.calorie_target != null && p.goal_type) {
@@ -100,6 +110,7 @@ export function statusLines(env: Env, p: Player, s: DayStats, final = false): st
       ? `😴 ${prettyDuration(s.sleepMinutes)} sleep ${sleepGoalMet(s, r) ? "✅" : "❌"}`
       : "😴 no sleep logged",
   );
+  lines.push(wakeLine(env, day, s.wakeAt));
   return lines;
 }
 
@@ -126,7 +137,7 @@ export async function weekBoard(env: Env, start: string, through: string): Promi
     const perDay = days.map((day) => {
       if (day > through) return null;
       const s = stats[i].get(day) ?? EMPTY_DAY;
-      const score = scoreDay(player, s, r);
+      const score = scoreDay(player, s, r, day);
       points += score.points;
       sleepMinutes += s.sleepMinutes ?? 0;
       return score.points;
@@ -177,8 +188,8 @@ export async function statusReport(env: Env, player: Player, now: Date, offset: 
   const lastWeight = weights.at(-1);
   const lines = [
     `Now: ${localIso} (${tz}). Game day: ${today} (${prettyDay(today)}). Days roll over at 4am.`,
-    `Player: ${player.name}. Goal: ${goalLine(player)}. Sleep target: ${prettyDuration(r.sleepTargetMinutes)}.`,
-    ...statusLines(env, player, stats[players.findIndex((x) => x.id === player.id)] ?? EMPTY_DAY).map((l) => `  ${l}`),
+    `Player: ${player.name}. Goal: ${goalLine(player)}. Sleep target: ${prettyDuration(r.sleepTargetMinutes)}. Wake-up: by ${prettyClock(r.wakeWeekday)} weekdays, ${prettyClock(r.wakeWeekend)} Sat/Sun, ${r.wakeGraceMinutes} min grace.`,
+    ...statusLines(env, player, stats[players.findIndex((x) => x.id === player.id)] ?? EMPTY_DAY, today).map((l) => `  ${l}`),
     player.pending_bed_at ? `In bed since ${prettyTime(player.pending_bed_at, tz)}; hasn't logged waking up.` : "",
     lastWeight
       ? `Latest weight: ${lastWeight.lb} lb on ${lastWeight.day}${player.goal_weight_lb ? `, goal ${player.goal_weight_lb} lb` : ""}.`
@@ -190,7 +201,7 @@ export async function statusReport(env: Env, player: Player, now: Date, offset: 
     ...mealLines(yesterdayMeals),
     "",
     "Everyone today:",
-    ...players.map((pl, i) => `  ${pl.name} (${goalLine(pl)}): ${statusLines(env, pl, stats[i]).join(" | ")}`),
+    ...players.map((pl, i) => `  ${pl.name} (${goalLine(pl)}): ${statusLines(env, pl, stats[i], today).join(" | ")}`),
     "",
     "This week's points (Mon to today):",
     ...formatBoard(board).map((l) => `  ${l}`),
@@ -201,7 +212,7 @@ export async function statusReport(env: Env, player: Player, now: Date, offset: 
 
 /** Short version for the end of tool results. */
 export async function totalsLine(env: Env, player: Player, day: string): Promise<string> {
-  return `${player.name}'s totals for ${prettyDay(day)}: ${statusLines(env, player, await dayStats(env, player.id, day)).join(" | ")}`;
+  return `${player.name}'s totals for ${prettyDay(day)}: ${statusLines(env, player, await dayStats(env, player.id, day), day).join(" | ")}`;
 }
 
 export async function dayRecap(env: Env, day: string): Promise<string> {
@@ -210,7 +221,7 @@ export async function dayRecap(env: Env, day: string): Promise<string> {
   const lines = [`📋 Recap for ${prettyDay(day)}`];
   for (const p of players) {
     const s = await dayStats(env, p.id, day);
-    lines.push("", `${p.name}: +${scoreDay(p, s, r).points} pts`, ...statusLines(env, p, s, true).map((l) => `  ${l}`));
+    lines.push("", `${p.name}: +${scoreDay(p, s, r, day).points} pts`, ...statusLines(env, p, s, day, true).map((l) => `  ${l}`));
   }
   return lines.join("\n");
 }
@@ -230,12 +241,17 @@ export async function weekVerdict(env: Env, start: string): Promise<string> {
 
 export async function eveningNudge(env: Env, player: Player, day: string): Promise<string> {
   const s = await dayStats(env, player.id, day);
-  const lines = [`🌙 9pm check-in for ${player.name}`, ...statusLines(env, player, s)];
+  const lines = [`🌙 9pm check-in for ${player.name}`, ...statusLines(env, player, s, day)];
   if (player.fat_target != null && s.fat < player.fat_target) {
     lines.push(`Fat is low (${s.fat}g of ${player.fat_target}g). Nut butter, avocado, or olive oil would close it.`);
   }
   if (player.protein_target != null && s.protein < player.protein_target) {
     lines.push(`${player.protein_target - s.protein}g protein to go. Greek yogurt, cottage cheese, or egg whites are easy wins.`);
   }
+  const r = db.rules(env);
+  const tomorrow = addDays(day, 1);
+  lines.push(
+    `Tomorrow (${prettyDay(tomorrow)}): up by ${prettyClock(wakeTarget(tomorrow, r))} for the wake-up point. Text gm when you get up.`,
+  );
   return lines.join("\n");
 }

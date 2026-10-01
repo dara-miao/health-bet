@@ -106,3 +106,9 @@ export function parseTime(iso: string, tz: string): Date | null {
   const guess = asUtc - utcOffsetMinutes(new Date(asUtc), tz) * 60_000;
   return new Date(asUtc - utcOffsetMinutes(new Date(guess), tz) * 60_000);
 }
+
+/** 510 -> "8:30 AM" */
+export function prettyClock(minutes: number): string {
+  const h = Math.floor(minutes / 60) % 24;
+  return `${h % 12 || 12}:${pad(minutes % 60)} ${h < 12 ? "AM" : "PM"}`;
+}

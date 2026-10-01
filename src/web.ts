@@ -3,8 +3,8 @@
 import * as db from "./db";
 import type { Env, Player } from "./db";
 import { dayStats, isPublic, mealTotals, weekBoard } from "./game";
-import { EMPTY_DAY, calorieGoalMet, proteinGoalMet, scoreDay, type DayStats } from "./scoring";
-import { addDays, gameDay, prettyDay, prettyDuration, prettyTime, weekStart } from "./time";
+import { EMPTY_DAY, calorieGoalMet, proteinGoalMet, scoreDay, wakeGoalMet, wakeMinutes, wakeTarget, type DayStats } from "./scoring";
+import { addDays, gameDay, prettyClock, prettyDay, prettyDuration, prettyTime, weekStart } from "./time";
 
 export function esc(s: unknown): string {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -146,7 +146,7 @@ function meter(label: string, value: string, frac: number, color: string, status
     <div class="track" style="--c:${color}" role="img" aria-label="${esc(label)} ${esc(value)}"><div class="fill" style="width:${pct.toFixed(1)}%"></div></div></div>`;
 }
 
-function playerCard(env: Env, p: Player, i: number, s: DayStats, todayPts: number, lastNight: number | null): string {
+function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, todayPts: number, lastNight: number | null): string {
   const r = db.rules(env);
   const color = seriesVar(i);
   const parts: string[] = [];
@@ -165,7 +165,7 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, todayPts: numbe
   if (p.fat_target != null) {
     parts.push(meter(`Fat <span class="muted">(not scored)</span>`, `${s.fat}g / ${p.fat_target}g`, s.fat / p.fat_target, color, s.fat >= p.fat_target ? `<span class="ok">✓</span>` : ""));
   } else {
-    parts.push(`<div class="meter"><div class="row"><span>Fat</span><span class="v">${s.fat}g</span></div></div>`);
+    parts.push(`<div class="meter"><div class="row"><span>Fat <span class="muted">(not scored)</span></span><span class="v">${s.fat}g</span></div></div>`);
   }
   parts.push(`<div class="meter"><div class="row"><span>Carbs <span class="muted">(not scored)</span></span><span class="v">${s.carbs}g</span></div></div>`);
   const sleepOk = lastNight != null && lastNight >= r.sleepTargetMinutes;
@@ -174,10 +174,15 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, todayPts: numbe
       ? meter("Sleep last night", `${prettyDuration(lastNight)} / ${prettyDuration(r.sleepTargetMinutes)}`, lastNight / r.sleepTargetMinutes, color, sleepOk ? `<span class="ok">✓</span>` : "")
       : `<div class="meter"><div class="row"><span>Sleep last night</span><span class="v muted">not logged</span></div></div>`,
   );
+  const by = `by ${prettyClock(wakeTarget(day, r))}`;
+  const wake = s.wakeAt
+    ? `${prettyTime(s.wakeAt, env.GAME_TZ)} ${wakeGoalMet(day, s, r) ? `<span class="ok">✓</span>` : `<span class="bad">${wakeMinutes(s.wakeAt, r.tz) - wakeTarget(day, r)} min late</span>`}`
+    : `<span class="muted">not logged</span>`;
+  parts.push(`<div class="meter"><div class="row"><span>Up ${by}</span><span class="v">${wake}</span></div></div>`);
   const goal = p.goal_type ? `${p.goal_type}` : "no goal yet";
   return `<div class="card"><div class="row" style="display:flex;justify-content:space-between;align-items:baseline">
       <h3><span class="swatch" style="background:${color}"></span>${esc(p.name)} <span class="muted">· ${goal}</span></h3>
-      <span class="sub">${todayPts}/3 today</span></div>${parts.join("")}</div>`;
+      <span class="sub">${todayPts}/4 today</span></div>${parts.join("")}</div>`;
 }
 
 export async function boardPage(env: Env, token: string, now: Date): Promise<Response> {
@@ -205,7 +210,7 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
   const banner = `<div class="banner">${verdict} ${punishment ? `Loser's punishment: <strong>${esc(punishment)}</strong>` : `<span class="muted">No punishment set yet. Text your agent "set the punishment to ..."</span>`}</div>`;
 
   const cards = players
-    .map((p, i) => playerCard(env, p, i, stats[i], scoreDay(p, stats[i], r).points, stats[i].sleepMinutes))
+    .map((p, i) => playerCard(env, p, i, stats[i], today, scoreDay(p, stats[i], r, today).points, stats[i].sleepMinutes))
     .join("");
 
   const dayHeads = board.days.map((d) => `<th class="n" title="${prettyDay(d)}">${prettyDay(d).slice(0, 2)}</th>`).join("");
@@ -239,7 +244,7 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
     <div class="hero">${hero || '<div class="card">No players yet.</div>'}</div>${banner}
     <h2>Today</h2><div class="players">${cards}</div>
     <h2>This week</h2><div class="card table-wrap"><table class="wk"><thead><tr><th>Player</th>${dayHeads}<th class="n">Total</th></tr></thead><tbody>${weekRows}</tbody></table>
-      <p class="muted" style="margin:8px 0 0;font-size:13px">1 point each for calories, protein, and ${prettyDuration(r.sleepTargetMinutes)}+ sleep. Lowest weekly total loses.</p></div>
+      <p class="muted" style="margin:8px 0 0;font-size:13px">1 point each for calories, protein, ${prettyDuration(r.sleepTargetMinutes)}+ sleep, and being up by ${prettyClock(r.wakeWeekday)} (weekends ${prettyClock(r.wakeWeekend)}, ${r.wakeGraceMinutes} min grace). Lowest weekly total loses.</p></div>
     <h2>Meals today</h2><div class="card">${feed.join("") || `<p class="muted" style="margin:0">No posted meals yet. Meals post ${env.POST_DELAY_MINUTES} minutes after their last edit.</p>`}
       ${pending ? `<p class="muted" style="margin:8px 0 0">${pending}</p>` : ""}</div>`,
     `<script>setTimeout(() => location.reload(), 5 * 60 * 1000)</script>`,
@@ -281,21 +286,30 @@ export async function historyPage(env: Env, token: string, now: Date, rangeDays:
         { title: "Protein", unit: "g", target: p.protein_target, targetLabel: "min", values: days.map((d) => (logged(d) ? s(d).protein : null)) },
         { title: "Fat", unit: "g", target: p.fat_target, targetLabel: "min", values: days.map((d) => (logged(d) ? s(d).fat : null)) },
         { title: "Sleep", unit: "h", target: r.sleepTargetMinutes / 60, targetLabel: "target", values: days.map((d) => (s(d).sleepMinutes == null ? null : Math.round((s(d).sleepMinutes! / 60) * 10) / 10)) },
+        {
+          title: "Wake-up",
+          unit: "time",
+          target: null,
+          targetLabel: "",
+          note: `by ${prettyClock(r.wakeWeekday)} weekdays · ${prettyClock(r.wakeWeekend)} weekends`,
+          values: days.map((d) => (s(d).wakeAt ? wakeMinutes(s(d).wakeAt!, r.tz) / 60 : null)),
+          zeroBased: false,
+        },
         { title: "Weight", unit: "lb", target: p.goal_weight_lb, targetLabel: "goal", values: days.map((d) => wByDay.get(d) ?? null), zeroBased: false },
       ];
       const streak = (() => {
         let n = 0;
         for (let d = addDays(today, -1); d >= firstDay; d = addDays(d, -1)) {
-          if (scoreDay(p, s(d), r).points === 3) n++;
+          if (scoreDay(p, s(d), r, d).points === 4) n++;
           else break;
         }
         return n;
       })();
       // Finished days since this player started tracking.
       const started = days.find((d) => s(d).foodCount > 0 || s(d).sleepMinutes != null);
-      const hits = days.filter((d) => started && d >= started && d < today).map((d) => scoreDay(p, s(d), r));
-      const rate = (k: "calOk" | "proteinOk" | "sleepOk") => Math.round((hits.filter((h) => h[k]).length / hits.length) * 100);
-      const rates = hits.length ? { n: hits.length, cal: rate("calOk"), protein: rate("proteinOk"), sleep: rate("sleepOk") } : null;
+      const hits = days.filter((d) => started && d >= started && d < today).map((d) => scoreDay(p, s(d), r, d));
+      const rate = (k: "calOk" | "proteinOk" | "sleepOk" | "wakeOk") => Math.round((hits.filter((h) => h[k]).length / hits.length) * 100);
+      const rates = hits.length ? { n: hits.length, cal: rate("calOk"), protein: rate("proteinOk"), sleep: rate("sleepOk"), wake: rate("wakeOk") } : null;
       return { p, i, charts, streak, rates };
     }),
   );
@@ -308,19 +322,19 @@ export async function historyPage(env: Env, token: string, now: Date, rangeDays:
     .map(({ p, i, charts, streak, rates }) => {
       const chartDivs = charts
         .map(
-          (c, k) => `<div class="card"><h3>${c.title}${c.target != null ? ` <span class="muted">· ${c.targetLabel} ${fmt(c.target)}${c.unit === "cal" ? "" : c.unit}</span>` : ""}</h3>
+          (c: any, k) => `<div class="card"><h3>${c.title}${c.target != null ? ` <span class="muted">· ${c.targetLabel} ${fmt(c.target)}${c.unit === "cal" ? "" : c.unit}</span>` : c.note ? ` <span class="muted">· ${c.note}</span>` : ""}</h3>
           <div class="chart" tabindex="0" data-chart="${i}-${k}" aria-label="${esc(p.name)} ${c.title} chart. Use left and right arrows to read values."></div></div>`,
         )
         .join("");
       const tableRows = days
-        .map((d, k) => `<tr><td>${prettyDay(d)}</td>${charts.map((c) => `<td class="n">${c.values[k] == null ? "–" : fmt(c.values[k]!)}</td>`).join("")}</tr>`)
+        .map((d, k) => `<tr><td>${prettyDay(d)}</td>${charts.map((c) => `<td class="n">${c.values[k] == null ? "–" : c.unit === "time" ? prettyClock(Math.round(c.values[k]! * 60)) : fmt(c.values[k]!)}</td>`).join("")}</tr>`)
         .reverse()
         .join("");
       return `<h2><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</h2>
-        <p class="sub">${rates ? `Goals hit on ${rates.n} finished day${rates.n > 1 ? "s" : ""}: calories ${rates.cal}% · protein ${rates.protein}% · sleep ${rates.sleep}%` : "Hit rates show up after the first full day."}${streak ? ` · 🔥 ${streak}-day perfect streak` : ""}</p>
+        <p class="sub">${rates ? `Goals hit on ${rates.n} finished day${rates.n > 1 ? "s" : ""}: calories ${rates.cal}% · protein ${rates.protein}% · sleep ${rates.sleep}% · up on time ${rates.wake}%` : "Hit rates show up after the first full day."}${streak ? ` · 🔥 ${streak}-day perfect streak` : ""}</p>
         <div class="charts">${chartDivs}</div>
         <details><summary>Show as table</summary><div class="card table-wrap" style="margin-top:8px"><table>
-          <thead><tr><th>Day</th>${charts.map((c) => `<th class="n">${c.title} (${c.unit})</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table></div></details>`;
+          <thead><tr><th>Day</th>${charts.map((c) => `<th class="n">${c.title}${c.unit === "time" ? "" : ` (${c.unit})`}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table></div></details>`;
     })
     .join("");
 
@@ -348,12 +362,15 @@ const CHART_JS = `
 (() => {
   const data = JSON.parse(document.getElementById("chart-data").textContent);
   const NS = "http://www.w3.org/2000/svg";
-  const fmt = (n) => Math.round(n * 10) / 10 >= 1000 ? Math.round(n).toLocaleString("en-US") : String(Math.round(n * 10) / 10);
+  const num = (n) => Math.round(n * 10) / 10 >= 1000 ? Math.round(n).toLocaleString("en-US") : String(Math.round(n * 10) / 10);
+  const clock = (h) => { const m = Math.round(h * 60), hh = Math.floor(m / 60) % 24; return (hh % 12 || 12) + ":" + String(m % 60).padStart(2, "0") + (hh < 12 ? "am" : "pm"); };
+
   const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
   function niceStep(v) { const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p; return 10 * p; }
 
   function draw(host, c) {
     host.innerHTML = "";
+    const fmt = c.unit === "time" ? clock : num;
     const vals = c.values.filter((v) => v != null);
     if (!vals.length) { const d = document.createElement("div"); d.className = "empty"; d.textContent = "Nothing logged yet"; host.appendChild(d); return; }
     const W = host.clientWidth, H = host.clientHeight, L = 44, R = 12, T = 10, B = 24;
@@ -406,7 +423,7 @@ const CHART_JS = `
       cross.setAttribute("x1", x(cur)); cross.setAttribute("x2", x(cur)); cross.setAttribute("visibility", "visible");
       if (v != null) { dot.setAttribute("cx", x(cur)); dot.setAttribute("cy", y(v)); dot.setAttribute("visibility", "visible"); } else dot.setAttribute("visibility", "hidden");
       tip.replaceChildren();
-      const strong = document.createElement("strong"); strong.textContent = v == null ? "not logged" : fmt(v) + " " + c.unit;
+      const strong = document.createElement("strong"); strong.textContent = v == null ? "not logged" : fmt(v) + (c.unit === "time" ? "" : " " + c.unit);
       const sub = document.createElement("span"); sub.className = "muted"; sub.textContent = data.labels[cur];
       tip.append(strong, sub); tip.style.display = "block";
       const right = x(cur) + 10 + tip.offsetWidth <= W;

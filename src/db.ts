@@ -5,15 +5,27 @@ export interface Env {
   GAME_TZ: string;
   SLEEP_TARGET_HOURS: string;
   CUT_FLOOR_CALORIES: string;
+  WAKE_WEEKDAY: string; // "08:30"
+  WAKE_WEEKEND: string; // "10:30"
+  WAKE_GRACE_MINUTES: string;
   POST_DELAY_MINUTES: string;
   JOIN_CODE: string;
   POKE_API_URL?: string; // override for local testing
 }
 
+const clock = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + (m || 0);
+};
+
 export function rules(env: Env): Rules {
   return {
+    tz: env.GAME_TZ,
     sleepTargetMinutes: Math.round(Number(env.SLEEP_TARGET_HOURS) * 60),
     cutFloorCalories: Number(env.CUT_FLOOR_CALORIES),
+    wakeWeekday: clock(env.WAKE_WEEKDAY),
+    wakeWeekend: clock(env.WAKE_WEEKEND),
+    wakeGraceMinutes: Number(env.WAKE_GRACE_MINUTES),
   };
 }
 
@@ -210,7 +222,7 @@ export async function statsForRange(
          FROM food_entries WHERE player_id = ? AND day BETWEEN ? AND ? GROUP BY day`,
       )
       .bind(playerId, from, to),
-    db.prepare("SELECT day, minutes FROM sleep_entries WHERE player_id = ? AND day BETWEEN ? AND ?").bind(playerId, from, to),
+    db.prepare("SELECT day, minutes, wake_at FROM sleep_entries WHERE player_id = ? AND day BETWEEN ? AND ?").bind(playerId, from, to),
   ]);
   const out = new Map<string, DayStats>();
   const get = (day: string) => {
@@ -220,7 +232,7 @@ export async function statsForRange(
   for (const r of food.results) {
     Object.assign(get(r.day), { calories: r.calories, protein: r.protein, fat: r.fat, carbs: r.carbs, foodCount: r.n });
   }
-  for (const r of sleep.results) get(r.day).sleepMinutes = r.minutes;
+  for (const r of sleep.results) Object.assign(get(r.day), { sleepMinutes: r.minutes, wakeAt: r.wake_at });
   return out;
 }
 

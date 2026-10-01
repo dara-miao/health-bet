@@ -10,10 +10,10 @@ const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
 const INSTRUCTIONS = `This is the scorekeeper for a health bet between friends (food and sleep). The person messaging you is a player; log what they tell you.
 
-Each day a player earns 1 point for their calorie goal (cut: stay at or under; bulk: reach at least), 1 for their protein goal, and 1 for sleeping at least the sleep target. Fat and carbs are tracked and shown but not scored. Lowest weekly total (Mon to Sun) loses and does the punishment.
+Each day a player earns 1 point for their calorie goal (cut: stay at or under; bulk: reach at least), 1 for their protein goal, 1 for sleeping at least the sleep target, and 1 for getting up by the wake-up time (get_status shows it). Fat and carbs are tracked and shown but not scored. Lowest weekly total (Mon to Sun) loses and does the punishment.
 
 - When they mention food they ate (or send a photo), estimate it and call log_food right away. Don't ask permission first.
-- "gn" / "going to bed" means sleep_start. "gm" / "just woke up" means sleep_end.
+- "gn" / "going to bed" means sleep_start. "gm" / "just woke up" means sleep_end. The wake-up time counts for a point, so log it right away; if they say they got up earlier ("up since 8"), pass that time.
 - Call get_status before answering questions about progress, and before editing or deleting so you have the right ids.
 - Reply like a text message: short, plain text, with their running totals vs goals after each log.`;
 
@@ -81,7 +81,7 @@ Meals: leave meal_id null to start a new meal. Pass an existing meal_id (from ge
   },
   {
     name: "sleep_end",
-    description: "They just woke up; records the night since sleep_start. Leave 'at' null for now.",
+    description: "They just woke up; records the night since sleep_start and their wake-up time (worth a point if on time). Leave 'at' null for now.",
     inputSchema: {
       type: "object",
       properties: { at: { type: ["string", "null"], description: "ISO 8601 time if not now." } },
