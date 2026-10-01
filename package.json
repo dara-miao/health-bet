@@ -1,0 +1,27 @@
+{
+  "name": "health-bet",
+  "version": "1.0.0",
+  "description": "Telegram bot that scores a calorie/protein/sleep bet between friends",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy && wrangler d1 migrations apply health-bet --remote",
+    "test": "vitest run",
+    "typecheck": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dara-miao/health-bet.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dara-miao/health-bet/issues"
+  },
+  "homepage": "https://github.com/dara-miao/health-bet#readme",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260930.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3",
+    "wrangler": "^4.145.0"
+  },
+  "private": true,
+  "type": "module"
+}

@@ -1,0 +1,25 @@
+name = "health-bet"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Everyone plays on one clock. Days roll over at 4am so late-night snacks count for the day before.
+GAME_TZ = "America/Los_Angeles"
+SLEEP_TARGET_HOURS = "7"
+# A cut day under this many calories never earns the calorie point.
+CUT_FLOOR_CALORIES = "1200"
+# Meals go public on the scoreboard this long after their last edit (or right away with post_meal).
+POST_DELAY_MINUTES = "30"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "health-bet"
+# No database_id: the first `wrangler deploy` creates the database and reuses it after that.
+migrations_dir = "migrations"
+
+[triggers]
+# Hourly; the worker decides what to send based on the local hour in GAME_TZ.
+crons = ["0 * * * *"]
+
+# Secret (set with `npx wrangler secret put JOIN_CODE`):
+#   JOIN_CODE: the password you and your friend use on the join page

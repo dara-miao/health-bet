@@ -1,0 +1,279 @@
+import { EMPTY_DAY, type DayStats, type GoalType, type Rules } from "./scoring";
+
+export interface Env {
+  DB: D1Database;
+  GAME_TZ: string;
+  SLEEP_TARGET_HOURS: string;
+  CUT_FLOOR_CALORIES: string;
+  POST_DELAY_MINUTES: string;
+  JOIN_CODE: string;
+  POKE_API_URL?: string; // override for local testing
+}
+
+export function rules(env: Env): Rules {
+  return {
+    sleepTargetMinutes: Math.round(Number(env.SLEEP_TARGET_HOURS) * 60),
+    cutFloorCalories: Number(env.CUT_FLOOR_CALORIES),
+  };
+}
+
+export interface Player {
+  id: number;
+  name: string;
+  poke_api_key: string | null;
+  goal_type: GoalType | null;
+  calorie_target: number | null;
+  protein_target: number | null;
+  fat_target: number | null;
+  goal_weight_lb: number | null;
+  pending_bed_at: string | null;
+}
+
+const PLAYER_COLS =
+  "id, name, poke_api_key, goal_type, calorie_target, protein_target, fat_target, goal_weight_lb, pending_bed_at";
+
+export interface FoodEntry {
+  id: number;
+  meal_id: number;
+  day: string;
+  description: string;
+  calories: number;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+}
+
+const FOOD_COLS = "id, meal_id, day, description, calories, protein_g, fat_g, carbs_g";
+
+export interface FoodItem {
+  description: string;
+  calories: number;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+}
+
+export interface Meal {
+  id: number;
+  player_id: number;
+  day: string;
+  name: string | null;
+  updated_at: string;
+  posted_at: string | null;
+}
+
+export interface MealWithItems extends Meal {
+  items: FoodEntry[];
+}
+
+export interface SleepEntry {
+  day: string;
+  bed_at: string;
+  wake_at: string;
+  minutes: number;
+}
+
+// ---------- players ----------
+
+export async function sha256(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Creates a player, or re-links an existing one (same name) to a new API key. */
+export async function joinPlayer(db: D1Database, name: string, apiKeyHash: string, pokeKey: string | null) {
+  await db
+    .prepare(
+      `INSERT INTO players (name, api_key_hash, poke_api_key) VALUES (?, ?, ?)
+       ON CONFLICT (name) DO UPDATE SET api_key_hash = excluded.api_key_hash,
+         poke_api_key = COALESCE(excluded.poke_api_key, players.poke_api_key)`,
+    )
+    .bind(name, apiKeyHash, pokeKey)
+    .run();
+}
+
+export async function playerByKey(db: D1Database, apiKey: string): Promise<Player | null> {
+  const hash = await sha256(apiKey);
+  return db.prepare(`SELECT ${PLAYER_COLS} FROM players WHERE api_key_hash = ?`).bind(hash).first<Player>();
+}
+
+export async function getPlayer(db: D1Database, id: number): Promise<Player | null> {
+  return db.prepare(`SELECT ${PLAYER_COLS} FROM players WHERE id = ?`).bind(id).first<Player>();
+}
+
+export async function listPlayers(db: D1Database): Promise<Player[]> {
+  const { results } = await db.prepare(`SELECT ${PLAYER_COLS} FROM players ORDER BY id`).all<Player>();
+  return results;
+}
+
+export async function setGoal(
+  db: D1Database,
+  id: number,
+  goal: { goal_type: GoalType; calorie_target: number; protein_target: number; fat_target: number | null },
+) {
+  await db
+    .prepare("UPDATE players SET goal_type = ?, calorie_target = ?, protein_target = ?, fat_target = ? WHERE id = ?")
+    .bind(goal.goal_type, goal.calorie_target, goal.protein_target, goal.fat_target, id)
+    .run();
+}
+
+export async function setGoalWeight(db: D1Database, id: number, lb: number | null) {
+  await db.prepare("UPDATE players SET goal_weight_lb = ? WHERE id = ?").bind(lb, id).run();
+}
+
+export async function setPendingBed(db: D1Database, id: number, iso: string | null) {
+  await db.prepare("UPDATE players SET pending_bed_at = ? WHERE id = ?").bind(iso, id).run();
+}
+
+// ---------- meals & food ----------
+
+export async function createMeal(db: D1Database, playerId: number, day: string, name: string | null, nowIso: string) {
+  const row = await db
+    .prepare("INSERT INTO meals (player_id, day, name, updated_at) VALUES (?, ?, ?, ?) RETURNING id")
+    .bind(playerId, day, name, nowIso)
+    .first<{ id: number }>();
+  return row!.id;
+}
+
+export async function getMeal(db: D1Database, playerId: number, mealId: number): Promise<Meal | null> {
+  return db.prepare("SELECT * FROM meals WHERE id = ? AND player_id = ?").bind(mealId, playerId).first<Meal>();
+}
+
+export async function touchMeals(db: D1Database, mealIds: number[], nowIso: string) {
+  if (mealIds.length === 0) return;
+  const stmt = db.prepare("UPDATE meals SET updated_at = ? WHERE id = ?");
+  await db.batch(mealIds.map((id) => stmt.bind(nowIso, id)));
+}
+
+export async function postMeal(db: D1Database, mealId: number, nowIso: string) {
+  await db.prepare("UPDATE meals SET posted_at = COALESCE(posted_at, ?) WHERE id = ?").bind(nowIso, mealId).run();
+}
+
+export async function addFood(db: D1Database, playerId: number, mealId: number, day: string, items: FoodItem[]) {
+  const stmt = db.prepare(
+    `INSERT INTO food_entries (meal_id, player_id, day, description, calories, protein_g, fat_g, carbs_g)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${FOOD_COLS}`,
+  );
+  const results = await db.batch<FoodEntry>(
+    items.map((it) =>
+      stmt.bind(mealId, playerId, day, it.description, ...[it.calories, it.protein_g, it.fat_g, it.carbs_g].map(Math.round)),
+    ),
+  );
+  return results.map((r) => r.results[0]);
+}
+
+export async function updateFood(db: D1Database, playerId: number, entryId: number, item: FoodItem) {
+  return db
+    .prepare(
+      `UPDATE food_entries SET description = ?, calories = ?, protein_g = ?, fat_g = ?, carbs_g = ?
+       WHERE id = ? AND player_id = ? RETURNING ${FOOD_COLS}`,
+    )
+    .bind(item.description, ...[item.calories, item.protein_g, item.fat_g, item.carbs_g].map(Math.round), entryId, playerId)
+    .first<FoodEntry>();
+}
+
+/** Deletes only the player's own entries, and any meals left empty. Returns what was removed. */
+export async function deleteFood(db: D1Database, playerId: number, ids: number[]): Promise<FoodEntry[]> {
+  if (ids.length === 0) return [];
+  const stmt = db.prepare(`DELETE FROM food_entries WHERE id = ? AND player_id = ? RETURNING ${FOOD_COLS}`);
+  const removed = (await db.batch<FoodEntry>(ids.map((id) => stmt.bind(id, playerId)))).flatMap((r) => r.results);
+  await db
+    .prepare("DELETE FROM meals WHERE player_id = ? AND id NOT IN (SELECT meal_id FROM food_entries WHERE player_id = ?)")
+    .bind(playerId, playerId)
+    .run();
+  return removed;
+}
+
+export async function mealsForDay(db: D1Database, playerId: number, day: string): Promise<MealWithItems[]> {
+  const [meals, items] = await db.batch<any>([
+    db.prepare("SELECT * FROM meals WHERE player_id = ? AND day = ? ORDER BY id").bind(playerId, day),
+    db.prepare(`SELECT ${FOOD_COLS} FROM food_entries WHERE player_id = ? AND day = ? ORDER BY id`).bind(playerId, day),
+  ]);
+  return (meals.results as Meal[]).map((m) => ({
+    ...m,
+    items: (items.results as FoodEntry[]).filter((i) => i.meal_id === m.id),
+  }));
+}
+
+/** Per-day stats for one player over an inclusive range of days. */
+export async function statsForRange(
+  db: D1Database,
+  playerId: number,
+  from: string,
+  to: string,
+): Promise<Map<string, DayStats>> {
+  const [food, sleep] = await db.batch<any>([
+    db
+      .prepare(
+        `SELECT day, SUM(calories) AS calories, SUM(protein_g) AS protein, SUM(fat_g) AS fat, SUM(carbs_g) AS carbs,
+                COUNT(*) AS n
+         FROM food_entries WHERE player_id = ? AND day BETWEEN ? AND ? GROUP BY day`,
+      )
+      .bind(playerId, from, to),
+    db.prepare("SELECT day, minutes FROM sleep_entries WHERE player_id = ? AND day BETWEEN ? AND ?").bind(playerId, from, to),
+  ]);
+  const out = new Map<string, DayStats>();
+  const get = (day: string) => {
+    if (!out.has(day)) out.set(day, { ...EMPTY_DAY });
+    return out.get(day)!;
+  };
+  for (const r of food.results) {
+    Object.assign(get(r.day), { calories: r.calories, protein: r.protein, fat: r.fat, carbs: r.carbs, foodCount: r.n });
+  }
+  for (const r of sleep.results) get(r.day).sleepMinutes = r.minutes;
+  return out;
+}
+
+export async function firstActivityDay(db: D1Database): Promise<string | null> {
+  const row = await db
+    .prepare("SELECT MIN(day) AS day FROM (SELECT day FROM food_entries UNION ALL SELECT day FROM sleep_entries)")
+    .first<{ day: string | null }>();
+  return row?.day ?? null;
+}
+
+// ---------- sleep & weight ----------
+
+export async function saveSleep(db: D1Database, playerId: number, entry: SleepEntry) {
+  await db
+    .prepare(
+      `INSERT INTO sleep_entries (player_id, day, bed_at, wake_at, minutes) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (player_id, day) DO UPDATE SET bed_at = excluded.bed_at, wake_at = excluded.wake_at, minutes = excluded.minutes`,
+    )
+    .bind(playerId, entry.day, entry.bed_at, entry.wake_at, entry.minutes)
+    .run();
+}
+
+export async function saveWeight(db: D1Database, playerId: number, day: string, lb: number) {
+  await db
+    .prepare("INSERT INTO weights (player_id, day, lb) VALUES (?, ?, ?) ON CONFLICT (player_id, day) DO UPDATE SET lb = excluded.lb")
+    .bind(playerId, day, lb)
+    .run();
+}
+
+export async function weightsForPlayer(db: D1Database, playerId: number): Promise<{ day: string; lb: number }[]> {
+  const { results } = await db
+    .prepare("SELECT day, lb FROM weights WHERE player_id = ? ORDER BY day")
+    .bind(playerId)
+    .all<{ day: string; lb: number }>();
+  return results;
+}
+
+// ---------- misc ----------
+
+export async function getSetting(db: D1Database, key: string): Promise<string | null> {
+  const row = await db.prepare("SELECT value FROM settings WHERE key = ?").bind(key).first<{ value: string }>();
+  return row?.value ?? null;
+}
+
+export async function setSetting(db: D1Database, key: string, value: string) {
+  await db
+    .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value")
+    .bind(key, value)
+    .run();
+}
+
+/** Returns true the first time a key is seen, false after that. */
+export async function firstTime(db: D1Database, key: string): Promise<boolean> {
+  const res = await db.prepare("INSERT OR IGNORE INTO seen (key) VALUES (?)").bind(key).run();
+  return res.meta.changes > 0;
+}
