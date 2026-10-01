@@ -136,8 +136,7 @@ ol li { margin-bottom: 8px; }
 /* Onboarding (join + you're in): one narrow column, like a phone even on a laptop. */
 main.narrow { max-width: 460px; padding-block: 48px 64px; }
 .onboard { text-align: center; margin-bottom: 22px; }
-.onboard .mark { width: 64px; height: 40px; display: block; margin: 0 auto 14px; }
-.onboard .title { margin: 10px 0 0; font-size: 36px; text-align: center; }
+.onboard .title { margin: 0; font-size: 36px; text-align: center; text-transform: none; letter-spacing: 0; }
 .onboard .lede { margin: 8px auto 0; text-align: center; max-width: 34ch; }
 .form { padding: 20px; border-radius: 26px; }
 .form label:first-of-type { margin-top: 0; }
@@ -218,12 +217,6 @@ function mealBlock(m: db.MealWithItems, opts: { owner?: string; color?: string; 
 
 // ---------- join ----------
 
-/** Two interlocking rings, pink and green: the mark for the onboarding pages. */
-const MARK = `<svg class="mark" viewBox="0 0 64 40" aria-hidden="true">
-  <circle cx="20" cy="20" r="15" fill="none" stroke="var(--series-1)" stroke-width="5" stroke-linecap="round" stroke-dasharray="70 100" transform="rotate(-90 20 20)"/>
-  <circle cx="44" cy="20" r="15" fill="none" stroke="var(--series-2)" stroke-width="5" stroke-linecap="round" stroke-dasharray="52 100" transform="rotate(-90 44 20)"/>
-</svg>`;
-
 function colorTile(value: "pink" | "green", label: string, series: string, arc: number): string {
   return `<label class="tile"><input type="radio" name="color" value="${value}" required>
     <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="18" fill="none" stroke="var(--axis)" stroke-width="6"/>
@@ -234,9 +227,8 @@ function colorTile(value: "pink" | "green", label: string, series: string, arc: 
 export function joinPage(error = "", name = ""): Response {
   return layout(
     "Join Health Bet",
-    `<header class="onboard">${MARK}<h1>Health Bet</h1>
-      <p class="title">Join the bet</p>
-      <p class="lede">Food, sleep, and wake-up. Four points a day. Lowest week loses.</p></header>
+    `<header class="onboard"><h1 class="title">Join the bet</h1>
+      <p class="lede">Food, sleep, and wake-up.<br>Lowest per week loses.</p></header>
     <form method="post" class="card form">
       ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ""}
       <label for="code">Join code</label><input id="code" name="code" required autocomplete="off" autocapitalize="off" placeholder="From whoever set this up">
@@ -272,8 +264,7 @@ export function joinSuccess(origin: string, name: string, apiKey: string, boardT
     `<div class="copy"><code id="${id}">${esc(value)}</code><button type="button" class="pill" data-copy="${id}">Copy</button></div>`;
   return layout(
     "You're in",
-    `<header class="onboard">${MARK}<h1>Health Bet</h1>
-      <p class="title">You're in, ${esc(name)}</p>
+    `<header class="onboard"><h1 class="title">You're in, ${esc(name)}</h1>
       <p class="lede">Three steps and you're logging.</p></header>
     <ol class="card steps">
       <li><h3>Save your key</h3><p class="hint">It's only shown this once. Keep it in your notes app.</p>${copyRow("key", apiKey)}</li>

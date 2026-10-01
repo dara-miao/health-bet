@@ -17,8 +17,22 @@ export default {
     if (path === "/mcp") return handleMcp(request, env);
 
     if (path === "/join") {
-      if (request.method === "POST") return handleJoin(request, env, url.origin);
-      return joinPage();
+      if (request.method === "POST") return handleJoin(request, env);
+      // A failed join redirects here with a one-time flash cookie, so a refresh clears the error.
+      const flash = readCookie(request, FLASH);
+      const res = flash ? joinPage(flash.error, flash.name) : joinPage();
+      if (flash) res.headers.append("set-cookie", clearCookie(FLASH));
+      return res;
+    }
+
+    if (path === "/join/done") {
+      // The new key is shown once; refreshing doesn't re-submit the form or rotate the key.
+      const done = readCookie(request, DONE);
+      if (!done) return Response.redirect(`${url.origin}/join`, 303);
+      const boardToken = (await db.getSetting(env.DB, "board_token")) ?? "";
+      const res = joinSuccess(url.origin, done.name, done.apiKey, boardToken, done.meToken, done.hasPoke);
+      res.headers.append("set-cookie", clearCookie(DONE));
+      return res;
     }
 
     const board = path.match(/^\/b\/([\w-]+)(\/history)?$/);
@@ -61,26 +75,49 @@ function randomToken(bytes: number): string {
   return btoa(String.fromCharCode(...buf)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-async function handleJoin(request: Request, env: Env, origin: string): Promise<Response> {
+const FLASH = "hb_join_error";
+const DONE = "hb_join_done";
+
+function setCookie(name: string, value: unknown, maxAge: number): string {
+  const v = btoa(unescape(encodeURIComponent(JSON.stringify(value))));
+  return `${name}=${v}; Path=/join; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
+}
+
+function clearCookie(name: string): string {
+  return `${name}=; Path=/join; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+}
+
+function readCookie(request: Request, name: string): any {
+  const raw = request.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`))?.[1];
+  if (!raw) return null;
+  try {
+    return JSON.parse(decodeURIComponent(escape(atob(raw))));
+  } catch {
+    return null;
+  }
+}
+
+function redirect(location: string, cookie: string): Response {
+  return new Response(null, { status: 303, headers: { location, "set-cookie": cookie } });
+}
+
+async function handleJoin(request: Request, env: Env): Promise<Response> {
   const form = await request.formData();
   const code = String(form.get("code") ?? "").trim();
   const name = String(form.get("name") ?? "").trim().slice(0, 40);
   const poke = String(form.get("poke") ?? "").trim() || null;
   const color = form.get("color") === "green" ? "green" : form.get("color") === "pink" ? "pink" : null;
-  if (!env.JOIN_CODE || code !== env.JOIN_CODE) return joinPage("That join code isn't right.", name);
-  if (!name) return joinPage("Enter your name.", name);
+  const fail = (error: string) => redirect("/join", setCookie(FLASH, { error, name }, 60));
+  if (!env.JOIN_CODE || code !== env.JOIN_CODE.trim()) return fail("That join code isn't right.");
+  if (!name) return fail("Enter your name.");
 
   const apiKey = `hb_${randomToken(24)}`;
   const meToken = randomToken(18);
   await db.joinPlayer(env.DB, name, await db.sha256(apiKey), meToken, poke, color);
 
-  let boardToken = await db.getSetting(env.DB, "board_token");
-  if (!boardToken) {
-    boardToken = randomToken(18);
-    await db.setSetting(env.DB, "board_token", boardToken);
-  }
+  if (!(await db.getSetting(env.DB, "board_token"))) await db.setSetting(env.DB, "board_token", randomToken(18));
   const player = (await db.listPlayers(env.DB)).find((p) => p.name.toLowerCase() === name.toLowerCase())!;
-  return joinSuccess(origin, player.name, apiKey, boardToken, meToken, Boolean(player.poke_api_key));
+  return redirect("/join/done", setCookie(DONE, { name: player.name, apiKey, meToken, hasPoke: Boolean(player.poke_api_key) }, 600));
 }
 
 // ---------- scheduled messages through Poke ----------
