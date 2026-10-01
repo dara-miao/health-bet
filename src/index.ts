@@ -108,7 +108,8 @@ async function handleJoin(request: Request, env: Env): Promise<Response> {
   const poke = String(form.get("poke") ?? "").trim() || null;
   const color = form.get("color") === "green" ? "green" : form.get("color") === "pink" ? "pink" : null;
   const fail = (error: string) => redirect("/join", setCookie(FLASH, { error, name }, 60));
-  if (!env.JOIN_CODE || code !== env.JOIN_CODE.trim()) return fail("That join code isn't right.");
+  if (!env.JOIN_CODE?.trim()) return fail("This app doesn't have a join code set up yet. Add JOIN_CODE as a Secret in Cloudflare.");
+  if (code !== env.JOIN_CODE.trim()) return fail("That join code isn't right.");
   if (!name) return fail("Enter your name.");
 
   const apiKey = `hb_${randomToken(24)}`;

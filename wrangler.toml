@@ -1,6 +1,8 @@
 name = "bet"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
+# Don't wipe variables added in the Cloudflare dashboard (like JOIN_CODE) on each deploy.
+keep_vars = true
 
 [vars]
 # Everyone plays on one clock. Days roll over at 4am so late-night snacks count for the day before.
