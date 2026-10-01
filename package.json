@@ -4,9 +4,10 @@
   "description": "Telegram bot that scores a calorie/protein/sleep bet between friends",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy && wrangler d1 migrations apply health-bet --remote",
+    "deploy": "wrangler deploy",
     "test": "vitest run",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "db:migrate": "wrangler d1 migrations apply health-bet --remote"
   },
   "repository": {
     "type": "git",

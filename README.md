@@ -59,7 +59,8 @@ These need each player's Poke API key (entered on the join page). Without one, t
 1. **Deploy on Cloudflare.** Sign up free at [dash.cloudflare.com](https://dash.cloudflare.com/sign-up), then:
    - Go to **Workers & Pages → Create → Import a repository**, connect GitHub, and pick this repo.
    - Leave the build command empty. Set the **deploy command** to `npm run deploy`.
-   - Click **Deploy**. The first deploy creates the database and sets up its tables.
+   - Click **Deploy**. The first deploy creates the database.
+   - Set up its tables: in the dashboard go to **Storage & Databases → D1 → health-bet → Console**, paste the contents of `migrations/0001_init.sql`, and run it. (Or from a terminal: `npm run db:migrate`.)
 
 2. **Set the join code.** Open the worker, then go to **Settings → Variables and Secrets → Add**:
    - **Type:** Secret
