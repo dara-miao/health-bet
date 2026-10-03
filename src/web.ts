@@ -117,7 +117,8 @@ const CSS = `
 }
 * { box-sizing: border-box; }
 html { background: var(--page); min-height: 100%; }
-body { min-height: 100vh; min-height: 100dvh; margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 var(--sans); }
+/* The color lives on html only: a body background would paint over the fixed background layers. */
+body { min-height: 100vh; min-height: 100dvh; margin: 0; background: transparent; color: var(--ink); font: 15px/1.45 var(--sans); }
 /* Background: soft pink/green glows (and the ocean fade), a glow that follows the pointer, and an
    animated ASCII field drawn on a canvas (see ASCII_JS). */
 body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
