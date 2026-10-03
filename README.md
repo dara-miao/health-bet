@@ -1,127 +1,160 @@
 # Health Bet
 
-A scorekeeper for a health bet between friends. You text your AI agent ([Poke](https://poke.com)) what you ate and when you sleep. It estimates calories and macros and logs them here through an MCP connection. A shared scoreboard shows who's winning, and each player has a private page with their own meals, macros, and weight. Every morning Poke texts you a recap, and every Monday it announces who lost the week.
+**A health bet between two friends that you play over iMessage.** You text your AI agent what you ate, when you went to bed, and when you woke up. It estimates calories and macros, logs everything to this app over the [Model Context Protocol](https://modelcontextprotocol.io), and keeps score. Lowest score each week does the punishment.
 
-There's no AI cost on the app side: Poke does the estimating. Hosting runs on Cloudflare's free tier.
+No calorie-counting app, no forms, no barcode scanning. Just texts like these:
 
-## Rules
+> **me:** greek yogurt with ¼ cup pb protein granola, pomegranate and blueberries
+> **Poke:** Logged ~365 cal, 31g protein. You're at 1,120 / 1,700 cal and 88 / 120g protein. 32g to go.
+> **me:** gn
+> **Poke:** Bedtime logged at 12:40am.
+> **me:** up
+> **Poke:** 7h 25m. Sleep point ✓ and up by 8:30 ✓.
 
-Each day, each player earns up to 4 points:
+Built for my friend and me: I'm cutting, he's bulking, and we both want more sleep.
 
-| | Cut player | Bulk player |
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+  subgraph phone["iMessage"]
+    me["Me"]
+    mal["Friend"]
+  end
+  poke["Poke<br/>(LLM agent, one per player)"]
+  subgraph cf["Cloudflare"]
+    worker["Worker<br/>MCP server + web app"]
+    d1[("D1<br/>SQLite")]
+    cron["Cron trigger<br/>hourly"]
+  end
+  web["Scoreboard<br/>(browser)"]
+
+  me -- texts --> poke
+  mal -- texts --> poke
+  poke -- "MCP tool calls<br/>(JSON-RPC over HTTPS,<br/>per-player bearer key)" --> worker
+  worker <--> d1
+  cron --> worker
+  worker -- "recaps &amp; nudges<br/>(Poke inbound API)" --> poke
+  poke -- texts back --> me
+  worker --> web
+```
+
+1. **Your agent is the interface.** Each player connects their own [Poke](https://poke.com) agent to the app as a custom MCP integration. Poke does the language understanding and the nutrition estimates. The app never runs its own model, so there's no AI bill on the server side.
+2. **The app is an MCP server.** It exposes typed tools (`log_food`, `sleep_end`, `get_status`, …) over Streamable HTTP. Every request carries the player's own bearer key, so the server always knows who is logging and never takes a "who is this?" argument from the model.
+3. **The server enforces the rules, not the model.** Scoring, day boundaries, deadlines, and privacy all live in deterministic TypeScript. The agent gets back plain-text results with running totals, so it can't drift from what's stored.
+4. **It talks back.** An hourly cron sends a 10am recap, a 9pm "here's what's left" check-in, and the Monday verdict through Poke's inbound API, so the reminders arrive as normal iMessages.
+
+## The rules
+
+Each day, each player can earn up to **4 points**:
+
+| | Cut | Bulk |
 |---|---|---|
-| 🔥 Calories | **at or under** your target (but not under 1,200) | **at or over** your target |
-| 💪 Protein | at or over your target | at or over your target |
-| 😴 Sleep | at least **7 hours** | at least **7 hours** |
-| ⏰ Wake-up | up by **8:30am** weekdays, **10:30am** Sat/Sun (10 min grace) | same |
+| 🔥 Calories | at or under target (never under a 1,200 floor) | at or over target |
+| 💪 Protein | at or over target | at or over target |
+| 😴 Sleep | 7h or more | 7h or more |
+| ⏰ Wake-up | up by 8:30 weekdays, 10:30 weekends (10 min grace) | same |
 
-The wake-up time is when you text Poke "gm", so send it when you actually get up.
+- Fat and carbs are tracked and shown but not scored.
+- Logging nothing doesn't count as a perfect cut day.
+- Weeks run Monday to Sunday. The lowest total loses. Ties go to whoever slept more.
+- Days roll over at **4am**, so a 1am snack counts for the night before. Sleep counts toward the day you wake up.
 
-- Fat and carbs are tracked and shown, with an optional fat minimum and reminders, but **don't score**.
-- Not logging any food that day earns no food points.
-- **Week = Monday to Sunday.** Lowest total loses and does the punishment. A tie on points goes to whoever slept more. If that's tied too, it's a draw.
-- Days end at **4am** Pacific, so a 1am snack counts for the day before. A night's sleep counts toward the day you wake up.
-## What the other player can see
+## Privacy by design
 
-| | Shared scoreboard (both of you) | Your private page (only you) |
+Friendly competition, not surveillance. The other player sees only what the bet needs:
+
+| | Shared scoreboard | Your private page |
 |---|---|---|
-| Points, week standings | ✅ | ✅ |
-| Calorie and protein totals | ✅ | ✅ |
-| Sleep and wake-up times | ✅ | ✅ |
-| Your meals | only the ones you share | ✅ all of them |
-| Fat and carbs | – | ✅ |
-| Weight | – | ✅ |
+| Points and standings | ✓ | ✓ |
+| Calorie and protein totals | ✓ | ✓ |
+| Sleep and wake-up times | ✓ | ✓ |
+| Meals | only ones you choose to share | ✓ all |
+| Fat and carbs | – | ✓ |
+| Weight | – | ✓ |
 
-Meals are private until you share them: tap **Share** on a meal (or **Share all** for a whole day) on your private page, or tell Poke "share my dinner" or "share all my meals today". **Unshare** takes it back. The daily recap sent to both of you contains only the shared fields; your 9pm check-in is just for you.
+This is enforced on the server. When your friend's agent asks for status, the response simply doesn't contain your private fields, so there's nothing for a model to leak. Meals are private by default and shared one at a time (or a whole day) from your page or by texting "share my dinner".
 
-## What you can text Poke
+## MCP tools
 
-- "greek yogurt with granola and blueberries" → logs it with an estimate
-- "actually it was 2 cups" / "remove the banana" → fixes it
-- "gn" … "gm" → logs your sleep
-- "slept 1am to 7am" → logs a night after the fact
-- "how much protein do I have left?" / "who's winning?"
-- "share my dinner with Mal" / "what's my private page?"
-- "weighed 137 this morning"
-- "set my goal: cut, 1700 cal, 120g protein, 45g fat"
-- "set the punishment to loser buys boba for a week"
+| Tool | What it does |
+|---|---|
+| `log_food` | Log items with calories, protein, fat and carbs; add to an existing meal or backdate up to a week |
+| `edit_food` / `delete_food` | Fix or remove a single item ("actually it was 3 eggs") |
+| `share_meal` | Share or unshare a meal, or a whole day, with the other player |
+| `sleep_start` / `sleep_end` | "gn" and "gm"; computes duration and the wake-up point |
+| `log_sleep` | A whole night after the fact ("slept 1 to 8") |
+| `get_status` | Current time, goals, today's meals with ids, the other player's shared stats, the week's standings |
+| `set_goal` / `log_weight` / `set_punishment` | Goals, private weigh-ins, and the stakes |
 
-## Automatic messages (through Poke)
+The server also sends the agent instructions on connect: log first and ask at most one clarifying question when a guess could be off by 150+ calories, treat any phrasing of "going to bed" or "woke up" as sleep, and never reveal the other player's private data.
 
-- **10am:** yesterday's recap
-- **Monday 10am:** the weekly verdict and punishment
-- **9pm:** where you stand today, with tips if protein or fat is short
+## Engineering notes
 
-These need each player's Poke API key (entered on the join page). Without one, the scoreboard still works; you just won't get the texts.
+Some details that took more than one try:
 
-## Setup (about 15 minutes, all in the browser)
+- **Agents and time zones.** LLMs often send ISO timestamps without an offset, or today's date in UTC (already tomorrow in California at 9pm). Offset-less times are read as wall-clock time in the game's time zone, including across DST changes. Future dates are clamped to the current game day instead of rejecting a meal.
+- **A 4am game day.** Food uses a "game day" that rolls over at 4am. Sleep belongs to the calendar day you wake up. Both are pure functions with unit tests.
+- **Exactly-once scheduled messages.** The hourly cron dedupes on keys like `recap:2026-09-30`, so a retried or overlapping run never double-texts anyone.
+- **One-time secrets.** Your personal key is shown once. The join form uses post/redirect/get with a short-lived HttpOnly cookie, so refreshing can't silently rotate your key. Keys are stored as SHA-256 hashes.
+- **Remembered devices.** The scoreboard sits behind a shared password and "My page" behind your personal key. Each is entered once per phone and remembered with a year-long HttpOnly cookie.
+- **A hand-rolled MCP server.** Stateless Streamable HTTP with JSON-RPC 2.0, batch support, notifications, and protocol-version negotiation in under 400 lines, with no SDK. The whole worker, icons included, is about 50 KB gzipped.
+- **No frontend framework.** Pages are server-rendered HTML. The charts (calories, protein, fat, sleep, wake-up, weight) are about 100 lines of hand-written SVG with crosshair tooltips, keyboard navigation, and a table view.
+- **A colorblind-checked palette.** The pink and green player colors were validated for lightness, chroma, contrast, and color-vision-deficiency separation in both light and dark mode. Status colors never reuse a player's hue, so a ✓ can't be mistaken for "the green player".
 
-1. **Deploy on Cloudflare.** Sign up free at [dash.cloudflare.com](https://dash.cloudflare.com/sign-up), then:
-   - Go to **Workers & Pages → Create → Import a repository**, connect GitHub, and pick this repo.
-   - Leave the build command empty. Set the **deploy command** to `npm run deploy`.
-   - Click **Deploy**. The first deploy creates the database.
-   - Set up its tables: in the dashboard go to **Storage & Databases → D1 → health-bet → Console**, paste the contents of `migrations/0001_init.sql`, and run it. (Or from a terminal: `npm run db:migrate`.)
+## Stack
 
-2. **Set the join code.** (Alternatively, store it in the database: `INSERT INTO settings (key, value) VALUES ('join_code', 'your-code')`. The secret wins if both are set.) Open the worker, then go to **Settings → Variables and Secrets → Add**:
-   - **Type:** Secret
-   - **Name:** `JOIN_CODE`
-   - **Value:** a password you and your friend will use. Make it long.
+- **Runtime:** Cloudflare Workers (TypeScript), D1 (SQLite), and Cron Triggers, all on the free tier
+- **Agent:** [Poke](https://poke.com) over MCP, plus Poke's inbound API for outgoing texts
+- **Frontend:** server-rendered HTML/CSS, inline SVG charts, the Rubik font, light and dark mode, installable to the home screen
+- **Tests:** Vitest for scoring rules, day boundaries, time parsing, and privacy filtering
 
-   Then redeploy from **Deployments** (or push any commit).
+```
+src/
+  index.ts     routes, join flow, password gate, scheduled messages
+  mcp.ts       MCP server: JSON-RPC handling, tools, agent instructions
+  game.ts      sleep logging, reports, status text (with the privacy filter)
+  scoring.ts   the scoring rules as pure functions
+  time.ts      time zones, 4am rollover, ISO parsing
+  web.ts       scoreboard, history charts, private page, onboarding
+  poke.ts      outgoing messages via Poke
+  db.ts        D1 queries
+migrations/    schema
+test/          unit tests
+```
 
-3. **Each player joins.** Your worker's URL is shown on its overview page, like `https://bet.<you>.workers.dev`. Open `/join` on it and enter:
-   - the join code
-   - your name
-   - your Poke API key (optional). Create a V2 key in Poke's Kitchen. This is what lets the app text you recaps.
+## Run your own
 
-   The page shows your personal **API key** once, plus the scoreboard link. If you lose the key, join again with the same name to get a new one.
+You need a free Cloudflare account and a [Poke](https://poke.com) account for each player.
 
-4. **Connect Poke.** Go to [poke.com/integrations/new](https://poke.com/integrations/new) and fill in:
-   - **Name:** `Health Bet`
-   - **MCP Server URL:** `https://bet.<you>.workers.dev/mcp`
-   - **API Key:** your key from step 3
+1. **Deploy:** in Cloudflare, go to **Workers & Pages → Create → Import a repository**, pick your fork, set the deploy command to `npm run deploy`, and deploy.
+2. **Create the tables:** paste `migrations/0001_init.sql` into the D1 console (or run `npm run db:migrate`).
+3. **Set a join code:** add `JOIN_CODE` as a runtime Secret, or insert it into the database with `INSERT INTO settings (key, value) VALUES ('join_code', '…')`.
+4. **Join:** each player opens `/join` and picks a color. They get a personal key and add the app in Poke as a custom integration (MCP URL `https://<your-worker>/mcp`, API key = their personal key).
+5. **Start texting:** "set my goal: cut, 1700 cal, 120g protein".
 
-5. **Set your goal** by texting Poke, e.g. *"set my goal: cut, 1700 cal, 120g protein, 45g fat"*. Then log your first meal.
-
-Prefer the terminal? Run `npm install`, `npx wrangler login`, `npx wrangler secret put JOIN_CODE`, then `npm run deploy`.
-
-### Settings
-
-Change these in `wrangler.toml` and push (Cloudflare redeploys automatically):
+Tune the rules in `wrangler.toml`:
 
 | Setting | Default | What it does |
 |---|---|---|
-| `GAME_TZ` | `America/Los_Angeles` | the timezone the game runs on |
+| `GAME_TZ` | `America/Los_Angeles` | the time zone the game runs on |
 | `SLEEP_TARGET_HOURS` | `7` | hours needed for the sleep point |
-| `WAKE_WEEKDAY` / `WAKE_WEEKEND` | `08:30` / `10:30` | be up by this time for the wake-up point |
-| `WAKE_GRACE_MINUTES` | `10` | minutes after the wake-up time that still count |
+| `WAKE_WEEKDAY` / `WAKE_WEEKEND` | `08:30` / `10:30` | the wake-up deadline |
+| `WAKE_GRACE_MINUTES` | `10` | minutes of grace on the wake-up deadline |
 | `CUT_FLOOR_CALORIES` | `1200` | a cut day under this never earns the calorie point |
 
-The 10am and 9pm send times are constants at the top of `src/index.ts`.
-
-### Privacy notes
-
-- The scoreboard (`/`) and history (`/history`) ask for a password, which is the join code. Each phone remembers it for a year.
-- **My page** (`/me`) takes each person to their own page. A phone signs in once with that person's personal key and is remembered after that. Joining again with the same name gives a new key and private link, and the old ones stop working.
-- API keys are stored hashed. Poke API keys are stored as-is so the app can send messages with them.
-
-## Development
+### Local development
 
 ```sh
-npm test            # unit tests: scoring, day boundaries, privacy
-npm run typecheck
+npm install
+npm test
 cp .dev.vars.example .dev.vars
 npx wrangler d1 migrations apply health-bet --local
-npm run dev         # then open http://localhost:8787/join
+npm run dev    # http://localhost:8787/join
 ```
 
-Code layout:
+---
 
-- `src/index.ts`: routes, the join flow, and scheduled messages
-- `src/mcp.ts`: the MCP server and tools Poke calls (`log_food`, `edit_food`, `delete_food`, `share_meal`, `sleep_start`, `sleep_end`, `log_sleep`, `get_status`, `set_goal`, `log_weight`, `set_punishment`)
-- `src/web.ts`: the join page, scoreboard, history charts, and private pages
-- `src/game.ts`: sleep logging, meal visibility, and reports
-- `src/scoring.ts`: the scoring rules (pure functions)
-- `src/time.ts`: timezone and 4am-rollover date math
-- `src/poke.ts`: sending messages through Poke's API
-- `migrations/`: the D1 schema
+Built by [Dara Miao](https://github.com/dara-miao), with [Claude Code](https://claude.com/claude-code).
