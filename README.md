@@ -133,7 +133,7 @@ You need a free Cloudflare account and a [Poke](https://poke.com) account for ea
 1. **Deploy:** in Cloudflare, go to **Workers & Pages → Create → Import a repository**, pick your fork, set the deploy command to `npm run deploy`, and deploy.
 2. **Create the tables:** paste `migrations/0001_init.sql` into the D1 console (or run `npm run db:migrate`).
 3. **Set a join code:** add `JOIN_CODE` as a runtime Secret, or insert it into the database with `INSERT INTO settings (key, value) VALUES ('join_code', '…')`.
-4. **Join:** each player opens `/join` and picks a color. The join code is also the password for the scoreboard. They get a personal key and add the app in Poke as a custom integration (MCP URL `https://<your-worker>/mcp`, API key = their personal key).
+4. **Join:** each player opens `/join` and picks a color. They get a personal key and add the app in Poke as a custom integration (MCP URL `https://<your-worker>/mcp`, API key = their personal key).
 5. **Start texting:** "set my goal: cut, 1700 cal, 120g protein".
 
 Tune the rules in `wrangler.toml`:
