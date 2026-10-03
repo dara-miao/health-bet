@@ -177,7 +177,14 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
   const today = gameDay(now, env.GAME_TZ);
   switch (name) {
     case "get_status":
-      return statusReport(env, player, now, formatOffset(utcOffsetMinutes(now, env.GAME_TZ)), `${origin}/me/${await db.privateToken(env.DB, player.id)}`);
+      return statusReport(
+        env,
+        player,
+        now,
+        formatOffset(utcOffsetMinutes(now, env.GAME_TZ)),
+        `${origin}/me/${await db.privateToken(env.DB, player.id)}`,
+        `${origin}/b/${(await db.getSetting(env.DB, "board_token")) ?? ""}`,
+      );
 
     case "log_food": {
       const food = items(args.items);

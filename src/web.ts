@@ -357,7 +357,7 @@ function face(name: string, i: number, weekPts: number, todayPts: number): strin
     </svg><div class="n">${esc(name)}</div><div class="d">${todayPts}/4 today</div></div>`;
 }
 
-export async function boardPage(env: Env, token: string, now: Date): Promise<Response> {
+export async function boardPage(env: Env, token: string, now: Date, meToken?: string): Promise<Response> {
   const today = gameDay(now, env.GAME_TZ);
   const start = weekStart(today);
   const r = db.rules(env);
@@ -398,7 +398,7 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
 
   return layout(
     "Scoreboard",
-    `${nav(token, "board")}
+    `${nav(token, "board", meToken)}
     <div class="date"><span>${prettyDay(today)}</span><span>Week of ${prettyDay(start).slice(4)}</span></div>
     <div class="faces">${hero || '<div class="card">No players yet.</div>'}</div>${banner}
     <h2>Today</h2><div class="players">${cards}</div>
@@ -413,7 +413,7 @@ export async function boardPage(env: Env, token: string, now: Date): Promise<Res
 
 // ---------- history ----------
 
-export async function historyPage(env: Env, token: string, now: Date, rangeDays: number): Promise<Response> {
+export async function historyPage(env: Env, token: string, now: Date, rangeDays: number, meToken?: string): Promise<Response> {
   const today = gameDay(now, env.GAME_TZ);
   const r = db.rules(env);
   const players = await db.listPlayers(env.DB);
@@ -443,7 +443,7 @@ export async function historyPage(env: Env, token: string, now: Date, rangeDays:
 
   return layout(
     "History",
-    `${nav(token, "history")}
+    `${nav(token, "history", meToken)}
     <div class="chips">${chips}</div>
     <h2>Weekly results</h2>
     <div class="card table-wrap"><table><thead><tr><th>Week of</th>${players.map((p, i) => `<th class="n"><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</th>`).join("")}<th>Result</th></tr></thead>

@@ -155,7 +155,7 @@ export function formatBoard(board: Board): string[] {
 }
 
 /** Everything the agent needs to answer questions and pick the right ids. */
-export async function statusReport(env: Env, player: Player, now: Date, offset: string, privateUrl: string): Promise<string> {
+export async function statusReport(env: Env, player: Player, now: Date, offset: string, privateUrl: string, boardUrl: string): Promise<string> {
   const tz = env.GAME_TZ;
   const today = gameDay(now, tz);
   const p = localParts(now, tz);
@@ -214,6 +214,7 @@ export async function statusReport(env: Env, player: Player, now: Date, offset: 
     ...formatBoard(board).map((l) => `  ${l}`),
     `Loser's punishment: ${punishment ?? "(not set)"}`,
     `${player.name}'s private page (meals, macros, weight; share it with no one): ${privateUrl}`,
+    `Shared scoreboard (both players): ${boardUrl}`,
   ];
   return lines.filter((l, i) => l !== "" || lines[i - 1] !== "").join("\n");
 }

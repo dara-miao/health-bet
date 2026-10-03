@@ -32,6 +32,7 @@ export default {
       const boardToken = (await db.getSetting(env.DB, "board_token")) ?? "";
       const res = joinSuccess(url.origin, done.name, done.apiKey, boardToken, done.meToken, done.hasPoke);
       res.headers.append("set-cookie", clearCookie(DONE));
+      res.headers.append("set-cookie", `${ME}=${done.meToken}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`);
       return res;
     }
 
@@ -41,9 +42,9 @@ export default {
       if (!token || board[1] !== token) return new Response("Not found", { status: 404 });
       if (board[2]) {
         const days = [14, 30, 90].includes(Number(url.searchParams.get("days"))) ? Number(url.searchParams.get("days")) : 30;
-        return historyPage(env, token, new Date(), days);
+        return historyPage(env, token, new Date(), days, await rememberedMe(request, env));
       }
-      return boardPage(env, token, new Date());
+      return boardPage(env, token, new Date(), await rememberedMe(request, env));
     }
 
     const me = path.match(/^\/me\/([\w-]+)(\/share)?$/);
@@ -58,7 +59,10 @@ export default {
         else await db.setMealShared(env.DB, player.id, Number(form.get("meal")), shared, new Date().toISOString());
         return new Response(null, { status: 303, headers: { location: `/me/${me[1]}` } });
       }
-      return privatePage(env, player, me[1], (await db.getSetting(env.DB, "board_token")) ?? "", new Date());
+      const page = await privatePage(env, player, me[1], (await db.getSetting(env.DB, "board_token")) ?? "", new Date());
+      // Remember this browser's private page so the scoreboard can link back to it.
+      page.headers.append("set-cookie", `${ME}=${me[1]}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`);
+      return page;
     }
 
     if (path === "/") return Response.redirect(`${url.origin}/join`, 302);
@@ -73,6 +77,15 @@ export default {
 function randomToken(bytes: number): string {
   const buf = crypto.getRandomValues(new Uint8Array(bytes));
   return btoa(String.fromCharCode(...buf)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+const ME = "hb_me";
+
+/** The private page this browser opened before, if it still belongs to a player. */
+async function rememberedMe(request: Request, env: Env): Promise<string | undefined> {
+  const token = request.headers.get("cookie")?.match(/(?:^|;\s*)hb_me=([\w-]+)/)?.[1];
+  if (!token) return undefined;
+  return (await db.playerByPrivateToken(env.DB, token)) ? token : undefined;
 }
 
 const FLASH = "hb_join_error";
