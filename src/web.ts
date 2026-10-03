@@ -149,6 +149,9 @@ main.narrow { max-width: 460px; padding-block: 48px 64px; }
   background: var(--raise); cursor: pointer; font-size: 14px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--ink); }
 .tile input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
 .tile svg { width: 48px; height: 48px; }
+.who-tiles { margin: 0; }
+button.tile { margin: 0; border: 0; font: 700 16px/1.2 var(--sans); padding: 20px 10px 16px; }
+button.tile:hover { box-shadow: inset 0 0 0 2px var(--ink); }
 .tile:has(input:checked) { box-shadow: inset 0 0 0 2px var(--ink); }
 .tile:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
 .opt { margin: 18px 0 0; }
@@ -536,19 +539,17 @@ export function lockedPage(next: string, error = ""): Response {
 
 // ---------- "My page" sign-in (once per phone) ----------
 
-export function meLoginPage(error = ""): Response {
+export function whoAreYouPage(players: Player[]): Response {
+  const tile = (p: Player, i: number) => `<button type="submit" name="player" value="${p.id}" class="tile who">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="18" fill="none" stroke="var(--axis)" stroke-width="6"/>
+        <circle cx="24" cy="24" r="18" fill="none" stroke="${seriesVar(i)}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${i ? 60 : 85} 120" transform="rotate(-90 24 24)"/></svg>
+      <span>${esc(p.name)}</span></button>`;
   return layout(
     "My page",
     `${nav("me")}
-    <header class="onboard"><h1 class="title">Your page</h1>
-      <p class="lede">Paste your personal key once and this phone will remember you.</p></header>
-    <form method="post" action="/me" class="card form">
-      ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ""}
-      <label for="key">Personal key</label>
-      <input id="key" name="key" required autocomplete="off" autocapitalize="off" placeholder="Starts with hb_">
-      <button type="submit" class="wide">Open my page</button>
-    </form>
-    <p class="foot">It's the key from when you joined, the same one you pasted into Poke. Lost it? Text Poke "what's my private page?", or join again with the same name.</p>`,
+    <header class="onboard"><h1 class="title">Who's this?</h1>
+      <p class="lede">Tap your name. This phone will remember you.</p></header>
+    <form method="post" action="/me" class="card form"><div class="tiles who-tiles">${players.map(tile).join("")}</div></form>`,
     "",
     "narrow",
   );

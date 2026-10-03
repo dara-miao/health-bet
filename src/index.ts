@@ -5,7 +5,7 @@ import { handleMcp } from "./mcp";
 import { sendToPoke } from "./poke";
 import { addDays, gameDay, localParts, weekStart } from "./time";
 import { ICON_PNG_180, ICON_PNG_512, ICON_PNG_64, ICON_SVG, MANIFEST } from "./icons";
-import { boardPage, historyPage, joinPage, joinSuccess, lockedPage, meLoginPage, privatePage } from "./web";
+import { boardPage, historyPage, joinPage, joinSuccess, lockedPage, privatePage, whoAreYouPage } from "./web";
 
 const RECAP_HOUR = 10; // daily recap (and Monday's weekly verdict) goes out at 10am
 const NUDGE_HOUR = 21; // evening check-in at 9pm
@@ -47,7 +47,7 @@ export default {
 
     if (path === "/unlock" && request.method === "POST") {
       const form = await request.formData();
-      const next = String(form.get("next") ?? "/") === "/history" ? "/history" : "/";
+      const next = ["/history", "/me"].includes(String(form.get("next"))) ? String(form.get("next")) : "/";
       const code = await joinCode(env);
       if (!code || String(form.get("code") ?? "").trim() !== code) {
         return redirect(next, setCookie(FLASH, { error: "That's not the password." }, 60, "/"));
@@ -72,20 +72,19 @@ export default {
     if (old) return Response.redirect(`${url.origin}${old[1] ? "/history" : "/"}`, 301);
 
     if (path === "/me") {
-      // "My page": straight to this phone's page if we know it, otherwise sign in once with the personal key.
-      if (request.method === "POST") {
-        const key = String((await request.formData()).get("key") ?? "").trim();
-        const player = key ? await db.playerByKey(env.DB, key) : null;
-        if (!player) return redirect("/me", setCookie(FLASH, { error: "That key doesn't match anyone. Check it and try again." }, 60, "/me"));
-        const token = await db.privateToken(env.DB, player.id);
-        return redirect(`/me/${token}`, rememberCookie(token));
-      }
+      // "My page": straight to this phone's page if we know it. Otherwise tap your name once.
+      // Only phones past the scoreboard password get the name picker.
       const token = await rememberedMe(request, env);
       if (token) return Response.redirect(`${url.origin}/me/${token}`, 303);
-      const flash = readCookie(request, FLASH);
-      const res = meLoginPage(flash?.error ?? "");
-      if (flash) res.headers.append("set-cookie", clearCookie(FLASH, "/me"));
-      return res;
+      if (!(await unlocked(request, env))) return lockedPage("/me");
+      if (request.method === "POST") {
+        const id = Number((await request.formData()).get("player"));
+        const player = Number.isInteger(id) ? await db.getPlayer(env.DB, id) : null;
+        if (!player) return Response.redirect(`${url.origin}/me`, 303);
+        const t = await db.privateToken(env.DB, player.id);
+        return redirect(`/me/${t}`, rememberCookie(t));
+      }
+      return whoAreYouPage(await db.listPlayers(env.DB));
     }
 
     const me = path.match(/^\/me\/([\w-]+)(\/share)?$/);
