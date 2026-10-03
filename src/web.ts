@@ -31,7 +31,7 @@ const CSS = `
   --raise: #f4ece1;
   --ink: #4a3f37;
   --ink-2: #6e6258;
-  --muted: #988c80;
+  --muted: #8b7f73;
   --grid: #eee5d8;
   --axis: #ddd1c1;
   --ring: #ebe1d3;
@@ -40,6 +40,7 @@ const CSS = `
   --good: #4a3f37;
   --critical: #a85d00;
   --dot: rgba(43,37,32,0.075);
+  --dot-hi: rgba(209,122,160,0.55);
   --aura-1: rgba(209,122,160,0.16);
   --aura-2: rgba(75,143,93,0.12);
   --blur: none;
@@ -62,6 +63,7 @@ const CSS = `
   --good: #f5f5f2;
   --critical: #f0a33a;
   --dot: rgba(255,255,255,0.055);
+  --dot-hi: rgba(240,166,198,0.6);
   --aura-1: rgba(240,166,198,0.10);
   --aura-2: rgba(79,154,106,0.10);
   --blur: none;
@@ -75,7 +77,7 @@ const CSS = `
   --raise: #f4ece1;
   --ink: #4a3f37;
   --ink-2: #6e6258;
-  --muted: #988c80;
+  --muted: #8b7f73;
   --grid: #eee5d8;
   --axis: #ddd1c1;
   --ring: #ebe1d3;
@@ -84,6 +86,7 @@ const CSS = `
   --good: #4a3f37;
   --critical: #a85d00;
   --dot: rgba(43,37,32,0.075);
+  --dot-hi: rgba(209,122,160,0.55);
   --aura-1: rgba(209,122,160,0.16);
   --aura-2: rgba(75,143,93,0.12);
   --blur: none;
@@ -105,6 +108,7 @@ const CSS = `
   --good: #f5f5f2;
   --critical: #f0a33a;
   --dot: rgba(255,255,255,0.055);
+  --dot-hi: rgba(240,166,198,0.6);
   --aura-1: rgba(240,166,198,0.10);
   --aura-2: rgba(79,154,106,0.10);
   --blur: none;
@@ -126,6 +130,7 @@ const CSS = `
   --good: #eef6fb;
   --critical: #ffc069;
   --dot: rgba(255,255,255,0.07);
+  --dot-hi: rgba(160,230,240,0.7);
   --aura-1: rgba(246,176,205,0.10);
   --aura-2: rgba(126,220,230,0.12);
   --blur: blur(14px) saturate(1.2);
@@ -140,6 +145,22 @@ body::before {
     radial-gradient(60vmax 45vmax at 100% 104%, var(--aura-2), transparent 70%),
     var(--page-grad);
 }
+/* Cursor-reactive layer: the first glow follows the pointer (--mx/--my, eased in JS), and the dots
+   under it brighten like a flashlight over a watch display. Static if reduced motion is on. */
+:root { --mx: 6vw; --my: -4vh; }
+.spot {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(420px 420px at var(--mx) var(--my), var(--aura-1), transparent 70%);
+}
+.spot::after {
+  content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(var(--dot-hi) 1.2px, transparent 1.7px);
+  background-size: 14px 14px;
+  -webkit-mask-image: radial-gradient(150px 150px at var(--mx) var(--my), #000, transparent 75%);
+  mask-image: radial-gradient(150px 150px at var(--mx) var(--my), #000, transparent 75%);
+}
+@media (prefers-reduced-motion: reduce) { .spot { display: none; } }
 body::after {
   background-image: radial-gradient(var(--dot) 1px, transparent 1.5px);
   background-size: 14px 14px;
@@ -326,6 +347,18 @@ const THEME_JS = `<script>
     sync();
   }));
   sync();
+
+  // Ease the glow toward the pointer (mouse, pen, or a dragging finger).
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const root = document.documentElement.style;
+    let x = innerWidth * 0.06, y = -innerHeight * 0.04, tx = x, ty = y, raf = 0;
+    const step = () => {
+      x += (tx - x) * 0.12; y += (ty - y) * 0.12;
+      root.setProperty("--mx", x.toFixed(1) + "px"); root.setProperty("--my", y.toFixed(1) + "px");
+      raf = Math.abs(tx - x) + Math.abs(ty - y) > 0.5 ? requestAnimationFrame(step) : 0;
+    };
+    addEventListener("pointermove", (e) => { tx = e.clientX; ty = e.clientY; if (!raf) raf = requestAnimationFrame(step); }, { passive: true });
+  }
 })();
 </script>`;
 
@@ -342,7 +375,7 @@ function layout(title: string, body: string, script = "", mainClass = ""): Respo
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400..800&family=Yellowtail&display=swap">
 <style>${CSS}</style></head>
-<body><main${mainClass ? ` class="${mainClass}"` : ""}>${body}</main>${script}${THEME_JS}</body></html>`;
+<body><div class="spot" aria-hidden="true"></div><main${mainClass ? ` class="${mainClass}"` : ""}>${body}</main>${script}${THEME_JS}</body></html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 
