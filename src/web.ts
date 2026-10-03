@@ -27,14 +27,15 @@ const CSS = `
   --script: "Yellowtail", "Brush Script MT", cursive;
   --page: #f6f0e7;
   --page-grad: none;
-  --surface: #fffaf3;
-  --raise: #f4ece1;
+  --surface: rgba(255, 251, 245, 0.58);
+  --solid: #fffaf3;
+  --raise: rgba(244, 236, 225, 0.55);
   --ink: #4a3f37;
   --ink-2: #6e6258;
   --muted: #8b7f73;
   --grid: #eee5d8;
   --axis: #ddd1c1;
-  --ring: #ebe1d3;
+  --ring: rgba(120, 100, 80, 0.10);
   --series-1: #d17aa0;
   --series-2: #4b8f5d;
   --good: #4a3f37;
@@ -43,20 +44,21 @@ const CSS = `
   --ascii-hi: rgba(209,122,160,0.9);
   --aura-1: rgba(209,122,160,0.16);
   --aura-2: rgba(75,143,93,0.12);
-  --blur: none;
+  --blur: blur(16px) saturate(1.15);
 }
 :root[data-theme="warm"] {
   color-scheme: light;
   --page: #f6f0e7;
   --page-grad: none;
-  --surface: #fffaf3;
-  --raise: #f4ece1;
+  --surface: rgba(255, 251, 245, 0.58);
+  --solid: #fffaf3;
+  --raise: rgba(244, 236, 225, 0.55);
   --ink: #4a3f37;
   --ink-2: #6e6258;
   --muted: #8b7f73;
   --grid: #eee5d8;
   --axis: #ddd1c1;
-  --ring: #ebe1d3;
+  --ring: rgba(120, 100, 80, 0.10);
   --series-1: #d17aa0;
   --series-2: #4b8f5d;
   --good: #4a3f37;
@@ -65,20 +67,21 @@ const CSS = `
   --ascii-hi: rgba(209,122,160,0.9);
   --aura-1: rgba(209,122,160,0.16);
   --aura-2: rgba(75,143,93,0.12);
-  --blur: none;
+  --blur: blur(16px) saturate(1.15);
 }
 :root[data-theme="black"] {
   color-scheme: dark;
   --page: #050505;
   --page-grad: none;
-  --surface: #111212;
-  --raise: #1a1b1b;
+  --surface: rgba(20, 21, 21, 0.58);
+  --solid: #111212;
+  --raise: rgba(255, 255, 255, 0.05);
   --ink: #f5f5f2;
   --ink-2: #b9bab5;
   --muted: #8b8c88;
   --grid: #1f2021;
   --axis: #2c2d2e;
-  --ring: #222324;
+  --ring: rgba(255, 255, 255, 0.08);
   --series-1: #f0a6c6;
   --series-2: #4f9a6a;
   --good: #f5f5f2;
@@ -87,13 +90,14 @@ const CSS = `
   --ascii-hi: rgba(240,166,198,0.9);
   --aura-1: rgba(240,166,198,0.10);
   --aura-2: rgba(79,154,106,0.10);
-  --blur: none;
+  --blur: blur(16px) saturate(1.15);
 }
 :root[data-theme="ocean"] {
   color-scheme: dark;
   --page: #0b3554;
   --page-grad: linear-gradient(170deg, #061626 0%, #0a3150 42%, #0e5470 72%, #1a7d89 100%);
   --surface: rgba(8, 26, 44, 0.58);
+  --solid: #0d2b44;
   --raise: rgba(255, 255, 255, 0.07);
   --ink: #eef6fb;
   --ink-2: #bcd6e5;
@@ -112,7 +116,8 @@ const CSS = `
   --blur: blur(14px) saturate(1.2);
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 var(--sans); }
+html { background: var(--page); min-height: 100%; }
+body { min-height: 100vh; min-height: 100dvh; margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 var(--sans); }
 /* Background: soft pink/green glows (and the ocean fade), a glow that follows the pointer, and an
    animated ASCII field drawn on a canvas (see ASCII_JS). */
 body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
@@ -128,7 +133,10 @@ canvas.ascii { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.15) 100%);
   mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.15) 100%); }
 @media (prefers-reduced-motion: reduce) { .spot { display: none; } }
-.card, .pcard, .face, .banner, .private-note, nav .links, .themes, .go, .chips a { -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
+.card, .pcard, .face, .banner, .private-note, nav .links, .themes, .go, .chips a {
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  box-shadow: inset 0 0 0 1px var(--ring), 0 1px 2px rgba(0, 0, 0, 0.03);
+}
 .brand { display: flex; align-items: center; gap: 14px; }
 .wordmark { font: 400 30px/1 var(--script); margin: 0; letter-spacing: 0; color: var(--ink); }
 .themes { display: inline-flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--surface); }
@@ -167,7 +175,7 @@ nav .links a[aria-current] { color: var(--ink); background: var(--raise); }
 .pcard { background: var(--surface); border-radius: 22px; padding: 14px; }
 .pcard .head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 2px 12px; }
 .pcard .head .t { font-size: 13px; color: var(--muted); font-weight: 600; }
-.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--ring); border-radius: 16px; overflow: hidden; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; border-radius: 16px; overflow: hidden; }
 .stat { background: var(--raise); padding: 10px 12px 11px; min-width: 0; }
 .stat .k { font-size: 13px; color: var(--muted); font-weight: 600; }
 .stat .v { font-size: 26px; line-height: 1.15; }
@@ -213,7 +221,7 @@ td.p4 { color: var(--ink); font-weight: 800; text-decoration: underline; text-de
 .chart:focus-visible { box-shadow: 0 0 0 2px var(--ink); border-radius: 8px; }
 .chart svg { display: block; width: 100%; height: 100%; overflow: visible; font-family: var(--sans); }
 .chart .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
-.tip { position: absolute; pointer-events: none; background: var(--raise); border-radius: 12px;
+.tip { position: absolute; pointer-events: none; background: var(--solid); box-shadow: inset 0 0 0 1px var(--ring); border-radius: 12px;
   padding: 7px 11px; font-size: 12px; white-space: nowrap; display: none; z-index: 2; }
 .tip strong { display: block; font-size: 17px; font-weight: 700; }
 details { margin: 10px 4px 0; }
@@ -291,7 +299,7 @@ const THEMES = `<div class="themes" role="group" aria-label="Theme">
 const THEME_COLORS = { warm: "#f6f0e7", black: "#050505", ocean: "#0b3554" };
 
 // Runs before paint so the saved theme never flashes the default.
-const THEME_BOOT = `<script>try{var t=localStorage.getItem("hb-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>`;
+const THEME_BOOT = `<script>try{var t=localStorage.getItem("hb-theme"),c=${JSON.stringify(THEME_COLORS)};if(t&&c[t]){document.documentElement.dataset.theme=t;document.querySelector('meta[name="theme-color"]').content=c[t]}}catch(e){}</script>`;
 
 const THEME_JS = `<script>
 (() => {
@@ -397,11 +405,11 @@ function layout(title: string, body: string, script = "", mainClass = ""): Respo
   if (!body.includes("<nav>")) body = `<div class="topbar">${THEMES}</div>${body}`;
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">${THEME_BOOT}<title>${esc(title === "Health Bet" ? title : `${title} · Health Bet`)}</title>
+<meta name="robots" content="noindex"><title>${esc(title === "Health Bet" ? title : `${title} · Health Bet`)}</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="alternate icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Health Bet"><meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#f6f0e7">
+<meta name="theme-color" content="#f6f0e7">${THEME_BOOT}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400..800&family=Yellowtail&display=swap">
 <style>${CSS}</style></head>
