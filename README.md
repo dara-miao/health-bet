@@ -102,7 +102,7 @@ Some details that took more than one try:
 - **One-time secrets.** Your personal key is shown once. The join form uses post/redirect/get with a short-lived HttpOnly cookie, so refreshing can't silently rotate your key. Keys are stored as SHA-256 hashes.
 - **Remembered devices.** The scoreboard sits behind a shared password and "My page" behind your personal key. Each is entered once per phone and remembered with a year-long HttpOnly cookie.
 - **A hand-rolled MCP server.** Stateless Streamable HTTP with JSON-RPC 2.0, batch support, notifications, and protocol-version negotiation in under 400 lines, with no SDK. The whole worker, icons included, is about 50 KB gzipped.
-- **No frontend framework.** Pages are server-rendered HTML. The charts (calories, protein, fat, sleep, wake-up, weight) are about 100 lines of hand-written SVG with crosshair tooltips, keyboard navigation, and a table view.
+- **No frontend framework.** Pages are server-rendered HTML. The background is an animated ASCII field on a canvas (waves, ripples, swirl, and plasma crossfading every 18s, with a bloom that follows the cursor). The charts (calories, protein, fat, sleep, wake-up, weight) are about 100 lines of hand-written SVG with crosshair tooltips, keyboard navigation, and a table view.
 - **A colorblind-checked palette.** The pink and green player colors were validated for lightness, chroma, contrast, and color-vision-deficiency separation in both light and dark mode. Status colors never reuse a player's hue, so a ✓ can't be mistaken for "the green player".
 
 ## Stack

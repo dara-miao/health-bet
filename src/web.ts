@@ -39,8 +39,8 @@ const CSS = `
   --series-2: #4b8f5d;
   --good: #4a3f37;
   --critical: #a85d00;
-  --dot: rgba(43,37,32,0.075);
-  --dot-hi: rgba(209,122,160,0.55);
+  --ascii: rgba(74,63,55,0.20);
+  --ascii-hi: rgba(209,122,160,0.9);
   --aura-1: rgba(209,122,160,0.16);
   --aura-2: rgba(75,143,93,0.12);
   --blur: none;
@@ -61,8 +61,8 @@ const CSS = `
   --series-2: #4b8f5d;
   --good: #4a3f37;
   --critical: #a85d00;
-  --dot: rgba(43,37,32,0.075);
-  --dot-hi: rgba(209,122,160,0.55);
+  --ascii: rgba(74,63,55,0.20);
+  --ascii-hi: rgba(209,122,160,0.9);
   --aura-1: rgba(209,122,160,0.16);
   --aura-2: rgba(75,143,93,0.12);
   --blur: none;
@@ -83,8 +83,8 @@ const CSS = `
   --series-2: #4f9a6a;
   --good: #f5f5f2;
   --critical: #f0a33a;
-  --dot: rgba(255,255,255,0.055);
-  --dot-hi: rgba(240,166,198,0.6);
+  --ascii: rgba(255,255,255,0.13);
+  --ascii-hi: rgba(240,166,198,0.9);
   --aura-1: rgba(240,166,198,0.10);
   --aura-2: rgba(79,154,106,0.10);
   --blur: none;
@@ -105,44 +105,29 @@ const CSS = `
   --series-2: #45a874;
   --good: #eef6fb;
   --critical: #ffc069;
-  --dot: rgba(255,255,255,0.07);
-  --dot-hi: rgba(160,230,240,0.7);
+  --ascii: rgba(205,236,246,0.16);
+  --ascii-hi: rgba(170,236,246,0.95);
   --aura-1: rgba(246,176,205,0.10);
   --aura-2: rgba(126,220,230,0.12);
   --blur: blur(14px) saturate(1.2);
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 var(--sans); }
-/* Background: soft pink/green glows (and the ocean fade), then a faint dot matrix like a watch display. */
-body::before, body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; }
-body::before {
+/* Background: soft pink/green glows (and the ocean fade), a glow that follows the pointer, and an
+   animated ASCII field drawn on a canvas (see ASCII_JS). */
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
     radial-gradient(60vmax 45vmax at 6% -4%, var(--aura-1), transparent 70%),
     radial-gradient(60vmax 45vmax at 100% 104%, var(--aura-2), transparent 70%),
     var(--page-grad);
 }
-/* Cursor-reactive layer: the first glow follows the pointer (--mx/--my, eased in JS), and the dots
-   under it brighten like a flashlight over a watch display. Static if reduced motion is on. */
 :root { --mx: 6vw; --my: -4vh; }
-.spot {
-  position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background:
-    radial-gradient(420px 420px at var(--mx) var(--my), var(--aura-1), transparent 70%);
-}
-.spot::after {
-  content: ""; position: absolute; inset: 0;
-  background-image: radial-gradient(var(--dot-hi) 1.2px, transparent 1.7px);
-  background-size: 14px 14px;
-  -webkit-mask-image: radial-gradient(150px 150px at var(--mx) var(--my), #000, transparent 75%);
-  mask-image: radial-gradient(150px 150px at var(--mx) var(--my), #000, transparent 75%);
-}
+.spot { position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(420px 420px at var(--mx) var(--my), var(--aura-1), transparent 70%); }
+canvas.ascii { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.15) 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.15) 100%); }
 @media (prefers-reduced-motion: reduce) { .spot { display: none; } }
-body::after {
-  background-image: radial-gradient(var(--dot) 1px, transparent 1.5px);
-  background-size: 14px 14px;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 90%);
-  mask-image: linear-gradient(to bottom, #000 0%, transparent 90%);
-}
 .card, .pcard, .face, .banner, .private-note, nav .links, .themes, .go, .chips a { -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
 .brand { display: flex; align-items: center; gap: 14px; }
 .wordmark { font: 400 30px/1 var(--script); margin: 0; letter-spacing: 0; color: var(--ink); }
@@ -338,6 +323,63 @@ const THEME_JS = `<script>
 })();
 </script>`;
 
+// Animated ASCII background: a character grid whose density comes from one of four fields
+// (waves, ripples, swirl, plasma) that crossfade every ~18s, plus a bloom around the pointer.
+// ~24fps, paused when hidden, a single still frame with reduced motion.
+const ASCII_JS = `<script>
+(() => {
+  const cv = document.querySelector("canvas.ascii"); if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const RAMP = " .·:-=+*#%";
+  const CW = 11, CH = 16;
+  let W = 0, H = 0, cols = 0, rows = 0, dpr = 1, base = "", hi = "";
+  const css = () => { const st = getComputedStyle(document.documentElement); base = st.getPropertyValue("--ascii").trim(); hi = st.getPropertyValue("--ascii-hi").trim(); };
+  const size = () => {
+    dpr = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace"; ctx.textBaseline = "top";
+    cols = Math.ceil(W / CW) + 1; rows = Math.ceil(H / CH) + 1;
+  };
+  const fields = [
+    (x, y, t) => 0.5 + 0.25 * Math.sin(x * 0.16 + t * 0.9) + 0.25 * Math.sin(y * 0.22 - t * 0.7 + x * 0.05),               // waves
+    (x, y, t) => { const d = Math.hypot(x - cols * 0.5, (y - rows * 0.4) * 1.6); return 0.5 + 0.5 * Math.sin(d * 0.35 - t * 1.6); }, // ripples
+    (x, y, t) => { const dx = x - cols * 0.5, dy = (y - rows * 0.45) * 1.6; return 0.5 + 0.5 * Math.sin(Math.atan2(dy, dx) * 3 + Math.hypot(dx, dy) * 0.12 - t); }, // swirl
+    (x, y, t) => 0.5 + 0.25 * Math.sin(x * 0.11 + t) + 0.25 * Math.sin(Math.hypot(x * 0.5 - 20 + 8 * Math.sin(t * 0.3), y - 10) * 0.25 + t * 0.6), // plasma
+  ];
+  let px = -999, py = -999;
+  addEventListener("pointermove", (e) => { px = e.clientX; py = e.clientY; }, { passive: true });
+  addEventListener("pointerleave", () => { px = py = -999; });
+  const PERIOD = 18, FADE = 3;
+  // Draw characters at fixed cell positions so the monospace grid stays aligned.
+  const draw = (ms) => {
+    const t = ms / 1000;
+    const k = Math.floor(t / PERIOD) % fields.length, next = (k + 1) % fields.length;
+    const into = t % PERIOD, mix = into > PERIOD - FADE ? (into - (PERIOD - FADE)) / FADE : 0;
+    const f = fields[k], g = fields[next];
+    ctx.clearRect(0, 0, W, H);
+    const pcx = px / CW, pcy = py / CH;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        let v = f(c, r, t) * (1 - mix) + g(c, r, t) * mix;
+        const bloom = Math.exp(-((c - pcx) ** 2 + ((r - pcy) * 1.45) ** 2) / 60);
+        v = Math.min(1, v * 0.85 + bloom * 0.6);
+        if (v < 0.42) continue;
+        const ch = RAMP[Math.min(RAMP.length - 1, Math.floor(((v - 0.42) / 0.58) * RAMP.length))];
+        ctx.fillStyle = bloom > 0.25 ? hi : base;
+        ctx.fillText(ch, c * CW, r * CH);
+      }
+    }
+  };
+  css(); size();
+  addEventListener("resize", size);
+  document.querySelectorAll(".themes button").forEach((b) => b.addEventListener("click", () => requestAnimationFrame(css)));
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { draw(4000); return; }
+  let last = 0;
+  const loop = (ms) => { if (!document.hidden && ms - last > 41) { last = ms; draw(ms); } requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+})();
+</script>`;
+
 function layout(title: string, body: string, script = "", mainClass = ""): Response {
   // Pages with a nav carry the switcher there; the rest get it alone at the top left.
   if (!body.includes("<nav>")) body = `<div class="topbar">${THEMES}</div>${body}`;
@@ -351,7 +393,7 @@ function layout(title: string, body: string, script = "", mainClass = ""): Respo
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400..800&family=Yellowtail&display=swap">
 <style>${CSS}</style></head>
-<body><div class="spot" aria-hidden="true"></div><main${mainClass ? ` class="${mainClass}"` : ""}>${body}</main>${script}${THEME_JS}</body></html>`;
+<body><canvas class="ascii" aria-hidden="true"></canvas><div class="spot" aria-hidden="true"></div><main${mainClass ? ` class="${mainClass}"` : ""}>${body}</main>${script}${THEME_JS}${ASCII_JS}</body></html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 
