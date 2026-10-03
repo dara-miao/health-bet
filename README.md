@@ -61,6 +61,7 @@ Each day, each player can earn up to **4 points**:
 - Logging nothing doesn't count as a perfect cut day.
 - Weeks run Monday to Sunday. The lowest total loses. Ties go to whoever slept more.
 - Days roll over at **4am**, so a 1am snack counts for the night before. Sleep counts toward the day you wake up.
+- Scoring starts on the bet's start day (`start_day` in the settings table), so days logged before both players joined don't count.
 
 ## Privacy by design
 

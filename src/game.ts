@@ -125,8 +125,14 @@ export interface Board {
 }
 
 /** Scores a Monday-to-Sunday week, counting days up to and including `through`. */
+/** The first day that counts for points (settings "start_day"), or null if the bet has no start date. */
+export async function betStart(env: Env): Promise<string | null> {
+  return db.getSetting(env.DB, "start_day");
+}
+
 export async function weekBoard(env: Env, start: string, through: string): Promise<Board> {
   const players = await db.listPlayers(env.DB);
+  const from = (await betStart(env)) ?? "";
   const days = weekDays(start);
   const r = db.rules(env);
   const stats = await Promise.all(players.map((p) => db.statsForRange(env.DB, p.id, start, days[6])));
@@ -134,7 +140,7 @@ export async function weekBoard(env: Env, start: string, through: string): Promi
     let points = 0;
     let sleepMinutes = 0;
     const perDay = days.map((day) => {
-      if (day > through) return null;
+      if (day > through || day < from) return null; // future, or before the bet started
       const s = stats[i].get(day) ?? EMPTY_DAY;
       const score = scoreDay(player, s, r, day);
       points += score.points;

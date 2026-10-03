@@ -1,6 +1,6 @@
 import * as db from "./db";
 import type { Env } from "./db";
-import { dayRecap, eveningNudge, weekVerdict } from "./game";
+import { betStart, dayRecap, eveningNudge, weekVerdict } from "./game";
 import { handleMcp } from "./mcp";
 import { sendToPoke } from "./poke";
 import { addDays, gameDay, localParts, weekStart } from "./time";
@@ -211,11 +211,12 @@ export async function runSchedule(env: Env, now: Date) {
 
   if (hour === RECAP_HOUR) {
     const yesterday = addDays(today, -1);
-    if (await db.firstTime(env.DB, `recap:${yesterday}`)) await notifyAll(env, await dayRecap(env, yesterday));
+    const start = (await betStart(env)) ?? "";
+    if (yesterday >= start && (await db.firstTime(env.DB, `recap:${yesterday}`))) await notifyAll(env, await dayRecap(env, yesterday));
     // Monday morning: the week that just ended is the one containing yesterday (Sunday).
     if (weekday === 1) {
       const lastWeek = weekStart(yesterday);
-      if (await db.firstTime(env.DB, `verdict:${lastWeek}`)) await notifyAll(env, await weekVerdict(env, lastWeek));
+      if (yesterday >= start && (await db.firstTime(env.DB, `verdict:${lastWeek}`))) await notifyAll(env, await weekVerdict(env, lastWeek));
     }
   }
 

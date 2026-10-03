@@ -2,7 +2,7 @@
 // small inline script from JSON embedded in the page.
 import * as db from "./db";
 import type { Env, Player } from "./db";
-import { dayStats, mealTotals, weekBoard } from "./game";
+import { betStart, dayStats, mealTotals, weekBoard } from "./game";
 import { EMPTY_DAY, calorieGoalMet, proteinGoalMet, scoreDay, wakeGoalMet, wakeMinutes, wakeTarget, type DayStats } from "./scoring";
 import { addDays, gameDay, prettyClock, prettyDay, prettyDuration, prettyTime, weekStart } from "./time";
 
@@ -421,7 +421,7 @@ export async function historyPage(env: Env, now: Date, rangeDays: number): Promi
   const today = gameDay(now, env.GAME_TZ);
   const r = db.rules(env);
   const players = await db.listPlayers(env.DB);
-  const firstDay = (await db.firstActivityDay(env.DB)) ?? today;
+  const firstDay = [(await db.firstActivityDay(env.DB)) ?? today, (await betStart(env)) ?? ""].sort().at(-1)!;
 
   // Weekly results, newest first, from the first week with any activity.
   const weeks: string[] = [];
@@ -490,7 +490,7 @@ async function playerHistory(env: Env, p: Player, i: number, days: string[], tod
     else break;
   }
   // Finished days since this player started tracking.
-  const started = days.find((d) => s(d).foodCount > 0 || s(d).sleepMinutes != null);
+  const started = days.find((d) => d >= firstDay && (s(d).foodCount > 0 || s(d).sleepMinutes != null));
   const hits = days.filter((d) => started && d >= started && d < today).map((d) => scoreDay(p, s(d), r, d));
   const rate = (k: "calOk" | "proteinOk" | "sleepOk" | "wakeOk") => Math.round((hits.filter((h) => h[k]).length / hits.length) * 100);
   const rates = hits.length ? `Goals hit on ${hits.length} finished day${hits.length > 1 ? "s" : ""}: calories ${rate("calOk")}% · protein ${rate("proteinOk")}% · sleep ${rate("sleepOk")}% · up on time ${rate("wakeOk")}%` : "Hit rates show up after the first full day.";
@@ -584,7 +584,7 @@ export async function privatePage(env: Env, player: Player, meToken: string, now
     `<div class="day-head"><h2>${title}</h2>${shareAll(day, ms)}</div>`;
 
   const days = Array.from({ length: 30 }, (_, k) => addDays(today, k - 29));
-  const firstDay = (await db.firstActivityDay(env.DB)) ?? today;
+  const firstDay = [(await db.firstActivityDay(env.DB)) ?? today, (await betStart(env)) ?? ""].sort().at(-1)!;
   const hist = await playerHistory(env, player, i, days, today, firstDay, true);
   const data = { days, labels: days.map(prettyDay), charts: hist.charts };
 
