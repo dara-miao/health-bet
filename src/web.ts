@@ -17,35 +17,147 @@ const SERIES = ["--series-1", "--series-2"];
 const seriesVar = (i: number) => `var(${SERIES[i % SERIES.length]})`;
 
 const CSS = `
-/* Sport-watch look: panels like watch faces, big condensed numerals, small spaced-out labels.
-   Follows the phone's light/dark setting. Soft pink and sage green, picked to stay distinct for colorblind readers.
-   Status never uses a player hue: hits are a plain check in ink, misses are amber. */
+/* Three themes: warm white, black, ocean. A phone's pick is saved in localStorage and set as
+   data-theme before paint; with no pick, it follows the phone's light/dark setting.
+   Player colors are validated per theme; status never uses a player hue (hits are a check in ink,
+   misses are amber). */
 :root {
   color-scheme: light;
-  --page: #efefec; --surface: #ffffff; --raise: #f4f4f1; --ink: #0d0d0c; --ink-2: #4a4a46; --muted: #73736d;
-  --grid: #ebebe7; --axis: #d6d6d0; --ring: #e4e4df;
-  --series-1: #d17aa0; --series-2: #4b8f5d;
-  --good: #0d0d0c; --critical: #a85d00;
   --sans: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --script: "Yellowtail", "Brush Script MT", cursive;
+  --page: #f6f0e7;
+  --page-grad: none;
+  --surface: #fffaf3;
+  --raise: #f4ece1;
+  --ink: #2b2520;
+  --ink-2: #5b5148;
+  --muted: #857a6e;
+  --grid: #eee5d8;
+  --axis: #ddd1c1;
+  --ring: #ebe1d3;
+  --series-1: #d17aa0;
+  --series-2: #4b8f5d;
+  --good: #2b2520;
+  --critical: #a85d00;
+  --dot: rgba(43,37,32,0.075);
+  --aura-1: rgba(209,122,160,0.16);
+  --aura-2: rgba(75,143,93,0.12);
+  --blur: none;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme]) {
     color-scheme: dark;
-    --page: #050505; --surface: #111212; --raise: #1a1b1b; --ink: #f5f5f2; --ink-2: #b9bab5; --muted: #8b8c88;
-    --grid: #1f2021; --axis: #2c2d2e; --ring: #222324;
-    --series-1: #f0a6c6; --series-2: #4f9a6a;
-    --good: #f5f5f2; --critical: #f0a33a;
+    --page: #050505;
+  --page-grad: none;
+  --surface: #111212;
+  --raise: #1a1b1b;
+  --ink: #f5f5f2;
+  --ink-2: #b9bab5;
+  --muted: #8b8c88;
+  --grid: #1f2021;
+  --axis: #2c2d2e;
+  --ring: #222324;
+  --series-1: #f0a6c6;
+  --series-2: #4f9a6a;
+  --good: #f5f5f2;
+  --critical: #f0a33a;
+  --dot: rgba(255,255,255,0.055);
+  --aura-1: rgba(240,166,198,0.10);
+  --aura-2: rgba(79,154,106,0.10);
+  --blur: none;
   }
 }
-:root[data-theme="dark"] {
+:root[data-theme="warm"] {
+  color-scheme: light;
+  --page: #f6f0e7;
+  --page-grad: none;
+  --surface: #fffaf3;
+  --raise: #f4ece1;
+  --ink: #2b2520;
+  --ink-2: #5b5148;
+  --muted: #857a6e;
+  --grid: #eee5d8;
+  --axis: #ddd1c1;
+  --ring: #ebe1d3;
+  --series-1: #d17aa0;
+  --series-2: #4b8f5d;
+  --good: #2b2520;
+  --critical: #a85d00;
+  --dot: rgba(43,37,32,0.075);
+  --aura-1: rgba(209,122,160,0.16);
+  --aura-2: rgba(75,143,93,0.12);
+  --blur: none;
+}
+:root[data-theme="black"] {
   color-scheme: dark;
-  --page: #050505; --surface: #111212; --raise: #1a1b1b; --ink: #f5f5f2; --ink-2: #b9bab5; --muted: #8b8c88;
-  --grid: #1f2021; --axis: #2c2d2e; --ring: #222324;
-  --series-1: #f0a6c6; --series-2: #4f9a6a;
-  --good: #f5f5f2; --critical: #f0a33a;
+  --page: #050505;
+  --page-grad: none;
+  --surface: #111212;
+  --raise: #1a1b1b;
+  --ink: #f5f5f2;
+  --ink-2: #b9bab5;
+  --muted: #8b8c88;
+  --grid: #1f2021;
+  --axis: #2c2d2e;
+  --ring: #222324;
+  --series-1: #f0a6c6;
+  --series-2: #4f9a6a;
+  --good: #f5f5f2;
+  --critical: #f0a33a;
+  --dot: rgba(255,255,255,0.055);
+  --aura-1: rgba(240,166,198,0.10);
+  --aura-2: rgba(79,154,106,0.10);
+  --blur: none;
+}
+:root[data-theme="ocean"] {
+  color-scheme: dark;
+  --page: #0b3554;
+  --page-grad: linear-gradient(170deg, #061626 0%, #0a3150 42%, #0e5470 72%, #1a7d89 100%);
+  --surface: rgba(8, 26, 44, 0.58);
+  --raise: rgba(255, 255, 255, 0.07);
+  --ink: #eef6fb;
+  --ink-2: #bcd6e5;
+  --muted: #8fb0c4;
+  --grid: rgba(255, 255, 255, 0.08);
+  --axis: rgba(255, 255, 255, 0.18);
+  --ring: rgba(255, 255, 255, 0.10);
+  --series-1: #f6b0cd;
+  --series-2: #45a874;
+  --good: #eef6fb;
+  --critical: #ffc069;
+  --dot: rgba(255,255,255,0.07);
+  --aura-1: rgba(246,176,205,0.10);
+  --aura-2: rgba(126,220,230,0.12);
+  --blur: blur(14px) saturate(1.2);
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 var(--sans); }
+/* Background: soft pink/green glows (and the ocean fade), then a faint dot matrix like a watch display. */
+body::before, body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+body::before {
+  background:
+    radial-gradient(60vmax 45vmax at 6% -4%, var(--aura-1), transparent 70%),
+    radial-gradient(60vmax 45vmax at 100% 104%, var(--aura-2), transparent 70%),
+    var(--page-grad);
+}
+body::after {
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.5px);
+  background-size: 14px 14px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 90%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 90%);
+}
+.card, .pcard, .face, .banner, .private-note, nav .links, .themes, .go, .chips a { -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
+.brand { display: flex; align-items: center; gap: 14px; }
+.wordmark { font: 400 30px/1 var(--script); margin: 0; letter-spacing: 0; color: var(--ink); }
+.themes { display: inline-flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--surface); }
+.themes button { width: 20px; height: 20px; margin: 0; padding: 0; border-radius: 50%; cursor: pointer; border: 1px solid var(--axis); }
+.themes button[data-t="warm"] { background: #f6f0e7; }
+.themes button[data-t="black"] { background: #050505; }
+.themes button[data-t="ocean"] { background: linear-gradient(160deg, #061626, #0e5470 60%, #1a7d89); }
+.themes button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+.themes button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.topbar { margin: 0 0 18px; }
+.onboard .title.wordmark { font: 400 48px/1.1 var(--script); }
 main { max-width: 760px; margin: 0 auto; padding-block: 18px 56px; padding-inline: 16px; }
 a { color: inherit; }
 h1 { font: 700 19px/1.1 var(--sans); margin: 0; }
@@ -53,6 +165,7 @@ h2 { font: 600 16px/1.2 var(--sans); color: var(--ink-2); margin: 26px 4px 10px;
 h3 { font: 700 15px/1.2 var(--sans); margin: 0; }
 .big, .v { font-weight: 700; font-variant-numeric: tabular-nums; }
 nav { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 18px; }
+nav h1 { font: 400 30px/1 var(--script); }
 nav .links { display: flex; background: var(--surface); border-radius: 999px; padding: 3px; }
 nav .links a { color: var(--muted); text-decoration: none; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
 nav .links a[aria-current] { color: var(--ink); background: var(--raise); }
@@ -188,24 +301,54 @@ fieldset.colors label:has(input:checked) { box-shadow: inset 0 0 0 2px var(--ink
 .title { font: 800 28px/1.1 var(--sans); margin: 6px 4px 0; }
 `;
 
+const THEMES = `<div class="themes" role="group" aria-label="Theme">
+  <button type="button" data-t="warm" aria-label="Warm white theme"></button>
+  <button type="button" data-t="black" aria-label="Black theme"></button>
+  <button type="button" data-t="ocean" aria-label="Ocean theme"></button></div>`;
+
+const THEME_COLORS = { warm: "#f6f0e7", black: "#050505", ocean: "#0b3554" };
+
+// Runs before paint so the saved theme never flashes the default.
+const THEME_BOOT = `<script>try{var t=localStorage.getItem("hb-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>`;
+
+const THEME_JS = `<script>
+(() => {
+  const colors = ${JSON.stringify(THEME_COLORS)};
+  const current = () => document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "black" : "warm");
+  const sync = () => {
+    const t = current();
+    document.querySelectorAll(".themes button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.t === t)));
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.content = colors[t]; m.removeAttribute("media"); });
+  };
+  document.querySelectorAll(".themes button").forEach((b) => b.addEventListener("click", () => {
+    document.documentElement.dataset.theme = b.dataset.t;
+    try { localStorage.setItem("hb-theme", b.dataset.t); } catch (e) {}
+    sync();
+  }));
+  sync();
+})();
+</script>`;
+
 function layout(title: string, body: string, script = "", mainClass = ""): Response {
+  // Pages with a nav carry the switcher there; the rest get it alone at the top left.
+  if (!body.includes("<nav>")) body = `<div class="topbar">${THEMES}</div>${body}`;
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex"><title>${esc(title === "Health Bet" ? title : `${title} · Health Bet`)}</title>
+<meta name="robots" content="noindex">${THEME_BOOT}<title>${esc(title === "Health Bet" ? title : `${title} · Health Bet`)}</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="alternate icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Health Bet"><meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)"><meta name="theme-color" content="#efefec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)"><meta name="theme-color" content="#f6f0e7" media="(prefers-color-scheme: light)">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400..800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400..800&family=Yellowtail&display=swap">
 <style>${CSS}</style></head>
-<body><main${mainClass ? ` class="${mainClass}"` : ""}>${body}</main>${script}</body></html>`;
+<body><main${mainClass ? ` class="${mainClass}"` : ""}>${body}</main>${script}${THEME_JS}</body></html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 
 function nav(current: "board" | "history" | "me"): string {
   const cur = (k: string) => (current === k ? 'aria-current="page"' : "");
-  return `<nav><h1>Health Bet</h1><div class="links">
+  return `<nav><div class="brand">${THEMES}<h1>Health Bet</h1></div><div class="links">
     <a href="/" ${cur("board")}>Scoreboard</a>
     <a href="/history" ${cur("history")}>History</a>
     <a href="/me" ${cur("me")}>My page</a></div></nav>`;
@@ -522,7 +665,7 @@ async function playerHistory(env: Env, p: Player, i: number, days: string[], tod
 export function lockedPage(next: string, error = ""): Response {
   return layout(
     "Health Bet",
-    `<header class="onboard">${MARK}<h1 class="title">Health Bet</h1>
+    `<header class="onboard">${MARK}<h1 class="title wordmark">Health Bet</h1>
       <p class="lede">Food, sleep, and wake-up.<br>Lowest per week loses.</p></header>
     <form method="post" action="/unlock" class="card form">
       ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ""}
