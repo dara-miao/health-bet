@@ -544,7 +544,8 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, to
   if (full) {
     const fatSt = p.fat_target == null ? "Not scored" : s.fat >= p.fat_target ? '<span class="ok">Hit</span> · not scored' : `${p.fat_target - s.fat}g low · not scored`;
     tiles.push(stat(p.fat_target != null ? `Fat · min ${p.fat_target}g` : "Fat", `${s.fat}<small>g</small>`, fatSt));
-    tiles.push(stat("Carbs", `${s.carbs}<small>g</small>`, "Not scored"));
+    const carbSt = p.carb_target == null ? "Not scored" : s.carbs >= p.carb_target ? '<span class="ok">Hit</span> · not scored' : `${p.carb_target - s.carbs}g to go · not scored`;
+    tiles.push(stat(p.carb_target != null ? `Carbs · about ${p.carb_target}g` : "Carbs", `${s.carbs}<small>g</small>`, carbSt));
   }
   const sleep = s.sleepMinutes;
   tiles.push(
@@ -689,7 +690,12 @@ async function playerHistory(env: Env, p: Player, i: number, days: string[], tod
   const charts: any[] = [
     { title: "Calories", unit: "cal", target: p.calorie_target, targetLabel: p.goal_type === "cut" ? "max" : "min", values: days.map((d) => (logged(d) ? s(d).calories : null)) },
     { title: "Protein", unit: "g", target: p.protein_target, targetLabel: "min", values: days.map((d) => (logged(d) ? s(d).protein : null)) },
-    ...(full ? [{ title: "Fat", unit: "g", target: p.fat_target, targetLabel: "min", values: days.map((d) => (logged(d) ? s(d).fat : null)) }] : []),
+    ...(full
+      ? [
+          { title: "Fat", unit: "g", target: p.fat_target, targetLabel: "min", values: days.map((d) => (logged(d) ? s(d).fat : null)) },
+          { title: "Carbs", unit: "g", target: p.carb_target, targetLabel: "about", values: days.map((d) => (logged(d) ? s(d).carbs : null)) },
+        ]
+      : []),
     { title: "Sleep", unit: "h", target: r.sleepTargetMinutes / 60, targetLabel: "target", values: days.map((d) => (s(d).sleepMinutes == null ? null : Math.round((s(d).sleepMinutes! / 60) * 10) / 10)) },
     {
       title: "Wake-up",

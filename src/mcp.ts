@@ -126,6 +126,7 @@ Meals: leave meal_id null to start a new meal. Pass an existing meal_id (from ge
         calorie_target: { type: "integer", description: "cut: the max; bulk: the min" },
         protein_target: { type: "integer", description: "minimum grams" },
         fat_target: { type: ["integer", "null"], description: "minimum grams, shown but not scored" },
+        carb_target: { type: ["integer", "null"], description: "rough daily aim in grams, shown but not scored" },
       },
       required: ["goal_type", "calorie_target", "protein_target"],
     },
@@ -263,6 +264,7 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
         calorie_target: Math.round(Number(args.calorie_target)),
         protein_target: Math.round(Number(args.protein_target)),
         fat_target: args.fat_target == null ? player.fat_target : Math.round(Number(args.fat_target)),
+        carb_target: args.carb_target == null ? player.carb_target : Math.round(Number(args.carb_target)),
       };
       if (!["cut", "bulk"].includes(goal.goal_type) || !(goal.calorie_target > 0) || !(goal.protein_target > 0)) {
         throw new ToolError("goal_type must be cut or bulk, with positive calorie and protein targets.");

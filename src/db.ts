@@ -36,12 +36,13 @@ export interface Player {
   calorie_target: number | null;
   protein_target: number | null;
   fat_target: number | null;
+  carb_target: number | null;
   goal_weight_lb: number | null;
   pending_bed_at: string | null;
 }
 
 const PLAYER_COLS =
-  "id, name, poke_api_key, goal_type, calorie_target, protein_target, fat_target, goal_weight_lb, pending_bed_at";
+  "id, name, poke_api_key, goal_type, calorie_target, protein_target, fat_target, carb_target, goal_weight_lb, pending_bed_at";
 
 export interface FoodEntry {
   id: number;
@@ -139,11 +140,11 @@ export async function listPlayers(db: D1Database): Promise<Player[]> {
 export async function setGoal(
   db: D1Database,
   id: number,
-  goal: { goal_type: GoalType; calorie_target: number; protein_target: number; fat_target: number | null },
+  goal: { goal_type: GoalType; calorie_target: number; protein_target: number; fat_target: number | null; carb_target: number | null },
 ) {
   await db
-    .prepare("UPDATE players SET goal_type = ?, calorie_target = ?, protein_target = ?, fat_target = ? WHERE id = ?")
-    .bind(goal.goal_type, goal.calorie_target, goal.protein_target, goal.fat_target, id)
+    .prepare("UPDATE players SET goal_type = ?, calorie_target = ?, protein_target = ?, fat_target = ?, carb_target = ? WHERE id = ?")
+    .bind(goal.goal_type, goal.calorie_target, goal.protein_target, goal.fat_target, goal.carb_target, id)
     .run();
 }
 

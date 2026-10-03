@@ -8,7 +8,7 @@ const env = {
 } as Env;
 const dara: Player = {
   id: 1, name: "Dara", poke_api_key: null, goal_type: "cut", calorie_target: 1700, protein_target: 120,
-  fat_target: 45, goal_weight_lb: 120, pending_bed_at: null,
+  fat_target: 45, carb_target: 170, goal_weight_lb: 120, pending_bed_at: null,
 };
 const stats = (calories: number) => ({ calories, protein: 50, fat: 20, carbs: 100, foodCount: 2, sleepMinutes: null, wakeAt: null });
 
@@ -22,11 +22,11 @@ describe("statusLines", () => {
   it("hides fat and carbs from other players", () => {
     const lines = statusLines(env, dara, stats(1500), "2026-09-30", { shared: true }).join("\n");
     expect(lines).not.toMatch(/fat|carbs/);
-    expect(goalLine(dara, true)).not.toMatch(/fat/);
-    expect(goalLine(dara)).toMatch(/fat at least 45g/);
+    expect(goalLine(dara, true)).not.toMatch(/fat|carbs/);
+    expect(goalLine(dara)).toMatch(/fat at least 45g, carbs about 170g/);
   });
   it("flags low fat", () => {
-    expect(statusLines(env, dara, stats(1500), "2026-09-30")[2]).toContain("20g / 45g fat (low)");
+    expect(statusLines(env, dara, stats(1500), "2026-09-30")[2]).toBe("🥑 20g / 45g fat (low) · 🍞 100g / ~170g carbs");
   });
 });
 

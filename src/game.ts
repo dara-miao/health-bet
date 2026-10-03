@@ -62,8 +62,11 @@ export function mealTotals(meal: MealWithItems) {
 export function goalLine(p: Player, shared = false): string {
   if (!p.goal_type || p.calorie_target == null || p.protein_target == null) return "no goal set yet";
   const cmp = p.goal_type === "cut" ? "at most" : "at least";
-  const fat = p.fat_target != null && !shared ? `, fat at least ${p.fat_target}g (not scored)` : "";
-  return `${p.goal_type}: ${cmp} ${p.calorie_target.toLocaleString()} cal, protein at least ${p.protein_target}g${fat}`;
+  const extras = shared
+    ? []
+    : [p.fat_target != null && `fat at least ${p.fat_target}g`, p.carb_target != null && `carbs about ${p.carb_target}g`].filter(Boolean);
+  const unscored = extras.length ? `, ${extras.join(", ")} (not scored)` : "";
+  return `${p.goal_type}: ${cmp} ${p.calorie_target.toLocaleString()} cal, protein at least ${p.protein_target}g${unscored}`;
 }
 
 /** `final` = the day is over (recaps); otherwise a cut day under the floor is just "in progress". */
@@ -103,7 +106,8 @@ export function statusLines(env: Env, p: Player, s: DayStats, day: string, opts:
     lines.push(`💪 ${s.protein}g protein`);
   }
   const fat = p.fat_target != null ? `${s.fat}g / ${p.fat_target}g fat${s.fat < p.fat_target ? " (low)" : ""}` : `${s.fat}g fat`;
-  if (!shared) lines.push(`🥑 ${fat} · 🍞 ${s.carbs}g carbs`);
+  const carbs = p.carb_target != null ? `${s.carbs}g / ~${p.carb_target}g carbs` : `${s.carbs}g carbs`;
+  if (!shared) lines.push(`🥑 ${fat} · 🍞 ${carbs}`);
   lines.push(
     s.sleepMinutes != null
       ? `😴 ${prettyDuration(s.sleepMinutes)} sleep ${sleepGoalMet(s, r) ? "✅" : "❌"}`
@@ -254,11 +258,17 @@ export async function weekVerdict(env: Env, start: string): Promise<string> {
   return lines.join("\n");
 }
 
+/** The daily carb minimum the brain needs (the National Academies' RDA). */
+export const MIN_CARBS = 130;
+
 export async function eveningNudge(env: Env, player: Player, day: string): Promise<string> {
   const s = await dayStats(env, player.id, day);
   const lines = [`🌙 9pm check-in for ${player.name}`, ...statusLines(env, player, s, day)];
   if (player.fat_target != null && s.fat < player.fat_target) {
     lines.push(`Fat is low (${s.fat}g of ${player.fat_target}g). Nut butter, avocado, or olive oil would close it.`);
+  }
+  if (player.carb_target != null && s.carbs < MIN_CARBS) {
+    lines.push(`Carbs are low (${s.carbs}g; aim for about ${player.carb_target}g, and at least ${MIN_CARBS}g). Rice, oats, fruit, or potatoes would help.`);
   }
   if (player.protein_target != null && s.protein < player.protein_target) {
     lines.push(`${player.protein_target - s.protein}g protein to go. Greek yogurt, cottage cheese, or egg whites are easy wins.`);
