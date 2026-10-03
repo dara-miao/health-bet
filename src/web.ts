@@ -325,19 +325,19 @@ const THEME_JS = `<script>
 
 // Animated ASCII background: a character grid whose density comes from one of four fields
 // (waves, ripples, swirl, plasma) that crossfade every ~18s, plus a bloom around the pointer.
-// ~24fps, paused when hidden, a single still frame with reduced motion.
+// ~30fps, paused when hidden, a single still frame with reduced motion.
 const ASCII_JS = `<script>
 (() => {
   const cv = document.querySelector("canvas.ascii"); if (!cv) return;
   const ctx = cv.getContext("2d");
   const RAMP = " .·:-=+*#%";
-  const CW = 11, CH = 16;
+  const CW = 7, CH = 10;
   let W = 0, H = 0, cols = 0, rows = 0, dpr = 1, base = "", hi = "";
   const css = () => { const st = getComputedStyle(document.documentElement); base = st.getPropertyValue("--ascii").trim(); hi = st.getPropertyValue("--ascii-hi").trim(); };
   const size = () => {
     dpr = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
     cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace"; ctx.textBaseline = "top";
+    ctx.font = "8px ui-monospace, SFMono-Regular, Menlo, monospace"; ctx.textBaseline = "top";
     cols = Math.ceil(W / CW) + 1; rows = Math.ceil(H / CH) + 1;
   };
   const fields = [
@@ -346,9 +346,10 @@ const ASCII_JS = `<script>
     (x, y, t) => { const dx = x - cols * 0.5, dy = (y - rows * 0.45) * 1.6; return 0.5 + 0.5 * Math.sin(Math.atan2(dy, dx) * 3 + Math.hypot(dx, dy) * 0.12 - t); }, // swirl
     (x, y, t) => 0.5 + 0.25 * Math.sin(x * 0.11 + t) + 0.25 * Math.sin(Math.hypot(x * 0.5 - 20 + 8 * Math.sin(t * 0.3), y - 10) * 0.25 + t * 0.6), // plasma
   ];
-  let px = -999, py = -999;
-  addEventListener("pointermove", (e) => { px = e.clientX; py = e.clientY; }, { passive: true });
-  addEventListener("pointerleave", () => { px = py = -999; });
+  // The highlight trails the pointer (eased each frame) and fades in and out instead of switching.
+  let px = -9999, py = -9999, ex = -9999, ey = -9999, strength = 0, target = 0;
+  addEventListener("pointermove", (e) => { px = e.clientX; py = e.clientY; target = 1; if (ex < -999) { ex = px; ey = py; } }, { passive: true });
+  document.addEventListener("pointerleave", () => { target = 0; });
   const PERIOD = 18, FADE = 3;
   // Draw characters at fixed cell positions so the monospace grid stays aligned.
   const draw = (ms) => {
@@ -357,25 +358,36 @@ const ASCII_JS = `<script>
     const into = t % PERIOD, mix = into > PERIOD - FADE ? (into - (PERIOD - FADE)) / FADE : 0;
     const f = fields[k], g = fields[next];
     ctx.clearRect(0, 0, W, H);
-    const pcx = px / CW, pcy = py / CH;
+    ex += (px - ex) * 0.07; ey += (py - ey) * 0.07; strength += (target - strength) * 0.05;
+    const pcx = ex / CW, pcy = ey / CH;
+    const R2 = 2 * 14 * 14; // soft falloff, ~100px radius
+    ctx.fillStyle = base;
+    const glow = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         let v = f(c, r, t) * (1 - mix) + g(c, r, t) * mix;
-        const bloom = Math.exp(-((c - pcx) ** 2 + ((r - pcy) * 1.45) ** 2) / 60);
-        v = Math.min(1, v * 0.85 + bloom * 0.6);
+        const bloom = strength * Math.exp(-((c - pcx) ** 2 + ((r - pcy) * 1.4) ** 2) / R2);
+        v = Math.min(1, v * 0.88 + bloom * 0.22);
         if (v < 0.42) continue;
         const ch = RAMP[Math.min(RAMP.length - 1, Math.floor(((v - 0.42) / 0.58) * RAMP.length))];
-        ctx.fillStyle = bloom > 0.25 ? hi : base;
         ctx.fillText(ch, c * CW, r * CH);
+        if (bloom > 0.04) glow.push(c, r, bloom, ch);
       }
     }
+    // Tint near the pointer, blended by distance rather than a hard switch.
+    ctx.fillStyle = hi;
+    for (let i = 0; i < glow.length; i += 4) {
+      ctx.globalAlpha = Math.min(1, glow[i + 2] * 0.45);
+      ctx.fillText(glow[i + 3], glow[i] * CW, glow[i + 1] * CH);
+    }
+    ctx.globalAlpha = 1;
   };
   css(); size();
   addEventListener("resize", size);
   document.querySelectorAll(".themes button").forEach((b) => b.addEventListener("click", () => requestAnimationFrame(css)));
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) { draw(4000); return; }
   let last = 0;
-  const loop = (ms) => { if (!document.hidden && ms - last > 41) { last = ms; draw(ms); } requestAnimationFrame(loop); };
+  const loop = (ms) => { if (!document.hidden && ms - last > 33) { last = ms; draw(ms); } requestAnimationFrame(loop); };
   requestAnimationFrame(loop);
 })();
 </script>`;
