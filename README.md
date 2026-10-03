@@ -100,16 +100,16 @@ Some details that took more than one try:
 - **A 4am game day.** Food uses a "game day" that rolls over at 4am. Sleep belongs to the calendar day you wake up. Both are pure functions with unit tests.
 - **Exactly-once scheduled messages.** The hourly cron dedupes on keys like `recap:2026-09-30`, so a retried or overlapping run never double-texts anyone.
 - **One-time secrets.** Your personal key is shown once. The join form uses post/redirect/get with a short-lived HttpOnly cookie, so refreshing can't silently rotate your key. Keys are stored as SHA-256 hashes.
-- **Remembered devices.** The scoreboard sits behind a shared password and "My page" behind your personal key. Each is entered once per phone and remembered with a year-long HttpOnly cookie.
-- **A hand-rolled MCP server.** Stateless Streamable HTTP with JSON-RPC 2.0, batch support, notifications, and protocol-version negotiation in under 400 lines, with no SDK. The whole worker, icons included, is about 50 KB gzipped.
-- **No frontend framework.** Pages are server-rendered HTML. The background is an animated ASCII field on a canvas (waves, ripples, swirl, and plasma crossfading every 18s, with a bloom that follows the cursor). The charts (calories, protein, fat, sleep, wake-up, weight) are about 100 lines of hand-written SVG with crosshair tooltips, keyboard navigation, and a table view.
-- **A colorblind-checked palette.** The pink and green player colors were validated for lightness, chroma, contrast, and color-vision-deficiency separation in both light and dark mode. Status colors never reuse a player's hue, so a ✓ can't be mistaken for "the green player".
+- **Remembered devices, no logins.** The site sits behind one shared password, entered once per phone and remembered with a year-long HttpOnly cookie. "My page" asks you to tap your name the first time, then goes straight to your private page after that.
+- **A hand-rolled MCP server.** Stateless Streamable HTTP with JSON-RPC 2.0, batch support, notifications, and protocol-version negotiation in under 400 lines, with no SDK. The whole worker, icons included, is about 55 KB gzipped.
+- **No frontend framework.** Pages are server-rendered HTML with three themes (warm white, black, and an ocean gradient), applied before first paint so they don't flash, and frosted translucent cards. The background is an animated ASCII field on a canvas (waves, ripples, swirl, and plasma crossfading every 18s, with a bloom that follows the cursor). The charts (calories, protein, fat, sleep, wake-up, weight) are about 100 lines of hand-written SVG with crosshair tooltips, keyboard navigation, and a table view.
+- **A colorblind-checked palette.** The pink and green player colors were checked for contrast and color-vision-deficiency separation on light and dark backgrounds, then softened to pastels. Status colors never reuse a player's hue, so a ✓ can't be mistaken for "the green player".
 
 ## Stack
 
 - **Runtime:** Cloudflare Workers (TypeScript), D1 (SQLite), and Cron Triggers, all on the free tier
 - **Agent:** [Poke](https://poke.com) over MCP, plus Poke's inbound API for outgoing texts
-- **Frontend:** server-rendered HTML/CSS, inline SVG charts, the Rubik font, light and dark mode, installable to the home screen
+- **Frontend:** server-rendered HTML/CSS, inline SVG charts, a canvas ASCII background, Rubik with a Yellowtail script logo, three themes, installable to the home screen
 - **Tests:** Vitest for scoring rules, day boundaries, time parsing, and privacy filtering
 
 ```
@@ -133,7 +133,7 @@ You need a free Cloudflare account and a [Poke](https://poke.com) account for ea
 1. **Deploy:** in Cloudflare, go to **Workers & Pages → Create → Import a repository**, pick your fork, set the deploy command to `npm run deploy`, and deploy.
 2. **Create the tables:** paste `migrations/0001_init.sql` into the D1 console (or run `npm run db:migrate`).
 3. **Set a join code:** add `JOIN_CODE` as a runtime Secret, or insert it into the database with `INSERT INTO settings (key, value) VALUES ('join_code', '…')`.
-4. **Join:** each player opens `/join` and picks a color. They get a personal key and add the app in Poke as a custom integration (MCP URL `https://<your-worker>/mcp`, API key = their personal key).
+4. **Join:** each player opens `/join` and picks a color. The join code is also the password for the scoreboard. They get a personal key and add the app in Poke as a custom integration (MCP URL `https://<your-worker>/mcp`, API key = their personal key).
 5. **Start texting:** "set my goal: cut, 1700 cal, 120g protein".
 
 Tune the rules in `wrangler.toml`:
