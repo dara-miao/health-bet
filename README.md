@@ -101,7 +101,8 @@ The 10am and 9pm send times are constants at the top of `src/index.ts`.
 
 ### Privacy notes
 
-- The scoreboard and private-page links are secret but not password-protected: anyone with a link can open it. Share the scoreboard only with your friend, and your private page with no one. Joining again with the same name gives you a new private link (and the old one stops working).
+- The scoreboard (`/`) and history (`/history`) ask for a password, which is the join code. Each phone remembers it for a year.
+- **My page** (`/me`) takes each person to their own page. A phone signs in once with that person's personal key and is remembered after that. Joining again with the same name gives a new key and private link, and the old ones stop working.
 - API keys are stored hashed. Poke API keys are stored as-is so the app can send messages with them.
 
 ## Development

@@ -196,12 +196,12 @@ function layout(title: string, body: string, script = "", mainClass = ""): Respo
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 
-function nav(token: string, current: "board" | "history" | "me", meToken?: string): string {
+function nav(current: "board" | "history" | "me"): string {
   const cur = (k: string) => (current === k ? 'aria-current="page"' : "");
   return `<nav><h1>Health Bet</h1><div class="links">
-    <a href="/b/${esc(token)}" ${cur("board")}>Scoreboard</a>
-    <a href="/b/${esc(token)}/history" ${cur("history")}>History</a>
-    ${meToken ? `<a href="/me/${esc(meToken)}" ${cur("me")}>My page</a>` : ""}</div></nav>`;
+    <a href="/" ${cur("board")}>Scoreboard</a>
+    <a href="/history" ${cur("history")}>History</a>
+    <a href="/me" ${cur("me")}>My page</a></div></nav>`;
 }
 
 function mealBlock(m: db.MealWithItems, opts: { owner?: string; color?: string; full: boolean; shareForm?: string }): string {
@@ -265,7 +265,7 @@ document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("clic
 }));
 </script>`;
 
-export function joinSuccess(origin: string, name: string, apiKey: string, boardToken: string, meToken: string, hasPoke: boolean): Response {
+export function joinSuccess(origin: string, name: string, apiKey: string, meToken: string, hasPoke: boolean): Response {
   const mcpUrl = `${origin}/mcp`;
   const copyRow = (id: string, value: string) =>
     `<div class="copy"><code id="${id}">${esc(value)}</code><button type="button" class="pill" data-copy="${id}">Copy</button></div>`;
@@ -283,7 +283,7 @@ export function joinSuccess(origin: string, name: string, apiKey: string, boardT
     ${hasPoke ? "" : `<p class="foot">You skipped reminders, so the app won't text you recaps. Logging by texting Poke still works. To add reminders later, join again with the same name.</p>`}
     <div class="links2">
       <a class="go" href="/me/${esc(meToken)}"><b>My page</b><span>Your meals, macros, weight. Just for you.</span></a>
-      <a class="go" href="/b/${esc(boardToken)}"><b>Scoreboard</b><span>Shared with your friend. Send them this link.</span></a>
+      <a class="go" href="/"><b>Scoreboard</b><span>${esc(new URL(origin).host)}. Shared with your friend.</span></a>
     </div>
     <p class="foot">Lost these links? Ask Poke "what's my private page?"</p>`,
     COPY_JS,
@@ -357,7 +357,7 @@ function face(name: string, i: number, weekPts: number, todayPts: number): strin
     </svg><div class="n">${esc(name)}</div><div class="d">${todayPts}/4 today</div></div>`;
 }
 
-export async function boardPage(env: Env, token: string, now: Date, meToken?: string): Promise<Response> {
+export async function boardPage(env: Env, now: Date): Promise<Response> {
   const today = gameDay(now, env.GAME_TZ);
   const start = weekStart(today);
   const r = db.rules(env);
@@ -398,7 +398,7 @@ export async function boardPage(env: Env, token: string, now: Date, meToken?: st
 
   return layout(
     "Scoreboard",
-    `${nav(token, "board", meToken)}
+    `${nav("board")}
     <div class="date"><span>${prettyDay(today)}</span><span>Week of ${prettyDay(start).slice(4)}</span></div>
     <div class="faces">${hero || '<div class="card">No players yet.</div>'}</div>${banner}
     <h2>Today</h2><div class="players">${cards}</div>
@@ -413,7 +413,7 @@ export async function boardPage(env: Env, token: string, now: Date, meToken?: st
 
 // ---------- history ----------
 
-export async function historyPage(env: Env, token: string, now: Date, rangeDays: number, meToken?: string): Promise<Response> {
+export async function historyPage(env: Env, now: Date, rangeDays: number): Promise<Response> {
   const today = gameDay(now, env.GAME_TZ);
   const r = db.rules(env);
   const players = await db.listPlayers(env.DB);
@@ -436,14 +436,14 @@ export async function historyPage(env: Env, token: string, now: Date, rangeDays:
   const days = Array.from({ length: rangeDays }, (_, k) => addDays(from, k));
   const sections = await Promise.all(players.map((p, i) => playerHistory(env, p, i, days, today, firstDay, false)));
   const chips = [14, 30, 90]
-    .map((n) => `<a href="/b/${esc(token)}/history?days=${n}" ${n === rangeDays ? 'aria-current="true"' : ""}>${n} days</a>`)
+    .map((n) => `<a href="/history?days=${n}" ${n === rangeDays ? 'aria-current="true"' : ""}>${n} days</a>`)
     .join("");
 
   const data = { days, labels: days.map(prettyDay), charts: Object.assign({}, ...sections.map((x) => x.charts)) };
 
   return layout(
     "History",
-    `${nav(token, "history", meToken)}
+    `${nav("history")}
     <div class="chips">${chips}</div>
     <h2>Weekly results</h2>
     <div class="card table-wrap"><table><thead><tr><th>Week of</th>${players.map((p, i) => `<th class="n"><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</th>`).join("")}<th>Result</th></tr></thead>
@@ -510,9 +510,49 @@ async function playerHistory(env: Env, p: Player, i: number, days: string[], tod
   return { html, charts: Object.fromEntries(charts.map((c, k) => [`${i}-${k}`, { ...c, color: SERIES[i % SERIES.length] }])) };
 }
 
+// ---------- scoreboard password (once per phone) ----------
+
+export function lockedPage(next: string, error = ""): Response {
+  return layout(
+    "Health Bet",
+    `<header class="onboard">${MARK}<h1 class="title">Health Bet</h1>
+      <p class="lede">Food, sleep, and wake-up.<br>Lowest per week loses.</p></header>
+    <form method="post" action="/unlock" class="card form">
+      ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ""}
+      <input type="hidden" name="next" value="${esc(next)}">
+      <label for="code">Password</label>
+      <input id="code" name="code" type="password" required autocomplete="current-password" placeholder="Same as the join code">
+      <button type="submit" class="wide">See the scoreboard</button>
+    </form>
+    <p class="foot">This phone will remember it. New here? <a href="/join">Join the bet</a>.</p>`,
+    "",
+    "narrow",
+  );
+}
+
+// ---------- "My page" sign-in (once per phone) ----------
+
+export function meLoginPage(error = ""): Response {
+  return layout(
+    "My page",
+    `${nav("me")}
+    <header class="onboard"><h1 class="title">Your page</h1>
+      <p class="lede">Paste your personal key once and this phone will remember you.</p></header>
+    <form method="post" action="/me" class="card form">
+      ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ""}
+      <label for="key">Personal key</label>
+      <input id="key" name="key" required autocomplete="off" autocapitalize="off" placeholder="Starts with hb_">
+      <button type="submit" class="wide">Open my page</button>
+    </form>
+    <p class="foot">It's the key from when you joined, the same one you pasted into Poke. Lost it? Text Poke "what's my private page?", or join again with the same name.</p>`,
+    "",
+    "narrow",
+  );
+}
+
 // ---------- private page ----------
 
-export async function privatePage(env: Env, player: Player, meToken: string, boardToken: string, now: Date): Promise<Response> {
+export async function privatePage(env: Env, player: Player, meToken: string, now: Date): Promise<Response> {
   const today = gameDay(now, env.GAME_TZ);
   const r = db.rules(env);
   const players = await db.listPlayers(env.DB);
@@ -546,7 +586,7 @@ export async function privatePage(env: Env, player: Player, meToken: string, boa
 
   return layout(
     `${player.name}'s page`,
-    `${nav(boardToken, "me", meToken)}
+    `${nav("me")}
     <p class="private-note">🔒 Only you can see this page. ${esc(others)} sees your points, calorie and protein totals, sleep, and wake-up, plus any meal you share. Don't share this link.</p>
     <div class="players">${playerCard(env, player, i, s, today, scoreDay(player, s, r, today).points, true)}</div>
     ${dayHead("Today's food", today, todayMeals)}<div class="card">${list(todayMeals, "Nothing logged yet today. Text Poke what you ate.")}</div>

@@ -4,7 +4,7 @@ import { dayRecap, eveningNudge, weekVerdict } from "./game";
 import { handleMcp } from "./mcp";
 import { sendToPoke } from "./poke";
 import { addDays, gameDay, localParts, weekStart } from "./time";
-import { boardPage, historyPage, joinPage, joinSuccess, privatePage } from "./web";
+import { boardPage, historyPage, joinPage, joinSuccess, lockedPage, meLoginPage, privatePage } from "./web";
 
 const RECAP_HOUR = 10; // daily recap (and Monday's weekly verdict) goes out at 10am
 const NUDGE_HOUR = 21; // evening check-in at 9pm
@@ -29,22 +29,53 @@ export default {
       // The new key is shown once; refreshing doesn't re-submit the form or rotate the key.
       const done = readCookie(request, DONE);
       if (!done) return Response.redirect(`${url.origin}/join`, 303);
-      const boardToken = (await db.getSetting(env.DB, "board_token")) ?? "";
-      const res = joinSuccess(url.origin, done.name, done.apiKey, boardToken, done.meToken, done.hasPoke);
+      const res = joinSuccess(url.origin, done.name, done.apiKey, done.meToken, done.hasPoke);
       res.headers.append("set-cookie", clearCookie(DONE));
-      res.headers.append("set-cookie", `${ME}=${done.meToken}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`);
+      res.headers.append("set-cookie", rememberCookie(done.meToken));
       return res;
     }
 
-    const board = path.match(/^\/b\/([\w-]+)(\/history)?$/);
-    if (board) {
-      const token = await db.getSetting(env.DB, "board_token");
-      if (!token || board[1] !== token) return new Response("Not found", { status: 404 });
-      if (board[2]) {
-        const days = [14, 30, 90].includes(Number(url.searchParams.get("days"))) ? Number(url.searchParams.get("days")) : 30;
-        return historyPage(env, token, new Date(), days, await rememberedMe(request, env));
+    if (path === "/unlock" && request.method === "POST") {
+      const form = await request.formData();
+      const next = String(form.get("next") ?? "/") === "/history" ? "/history" : "/";
+      const code = await joinCode(env);
+      if (!code || String(form.get("code") ?? "").trim() !== code) {
+        return redirect(next, setCookie(FLASH, { error: "That's not the password." }, 60, "/"));
       }
-      return boardPage(env, token, new Date(), await rememberedMe(request, env));
+      return redirect(next, `${GATE}=${await gateValue(code)}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`);
+    }
+
+    if (path === "/" || path === "/history") {
+      // Password-protected: the join code, remembered on this phone for a year.
+      if (!(await unlocked(request, env))) {
+        const flash = readCookie(request, FLASH);
+        const res = lockedPage(path, flash?.error ?? "");
+        if (flash) res.headers.append("set-cookie", clearCookie(FLASH, "/"));
+        return res;
+      }
+      if (path === "/") return boardPage(env, new Date());
+      const days = [14, 30, 90].includes(Number(url.searchParams.get("days"))) ? Number(url.searchParams.get("days")) : 30;
+      return historyPage(env, new Date(), days);
+    }
+    // Old secret scoreboard links still work.
+    const old = path.match(/^\/b\/[\w-]+(\/history)?$/);
+    if (old) return Response.redirect(`${url.origin}${old[1] ? "/history" : "/"}`, 301);
+
+    if (path === "/me") {
+      // "My page": straight to this phone's page if we know it, otherwise sign in once with the personal key.
+      if (request.method === "POST") {
+        const key = String((await request.formData()).get("key") ?? "").trim();
+        const player = key ? await db.playerByKey(env.DB, key) : null;
+        if (!player) return redirect("/me", setCookie(FLASH, { error: "That key doesn't match anyone. Check it and try again." }, 60, "/me"));
+        const token = await db.privateToken(env.DB, player.id);
+        return redirect(`/me/${token}`, rememberCookie(token));
+      }
+      const token = await rememberedMe(request, env);
+      if (token) return Response.redirect(`${url.origin}/me/${token}`, 303);
+      const flash = readCookie(request, FLASH);
+      const res = meLoginPage(flash?.error ?? "");
+      if (flash) res.headers.append("set-cookie", clearCookie(FLASH, "/me"));
+      return res;
     }
 
     const me = path.match(/^\/me\/([\w-]+)(\/share)?$/);
@@ -59,13 +90,12 @@ export default {
         else await db.setMealShared(env.DB, player.id, Number(form.get("meal")), shared, new Date().toISOString());
         return new Response(null, { status: 303, headers: { location: `/me/${me[1]}` } });
       }
-      const page = await privatePage(env, player, me[1], (await db.getSetting(env.DB, "board_token")) ?? "", new Date());
-      // Remember this browser's private page so the scoreboard can link back to it.
-      page.headers.append("set-cookie", `${ME}=${me[1]}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`);
+      const page = await privatePage(env, player, me[1], new Date());
+      // Remember this phone's private page so "My page" goes straight there.
+      page.headers.append("set-cookie", rememberCookie(me[1]));
       return page;
     }
 
-    if (path === "/") return Response.redirect(`${url.origin}/join`, 302);
     return new Response("Not found", { status: 404 });
   },
 
@@ -88,16 +118,39 @@ async function rememberedMe(request: Request, env: Env): Promise<string | undefi
   return (await db.playerByPrivateToken(env.DB, token)) ? token : undefined;
 }
 
+const GATE = "hb_in";
+
+/** The JOIN_CODE secret wins; otherwise the code saved in the database's settings. */
+async function joinCode(env: Env): Promise<string | undefined> {
+  return env.JOIN_CODE?.trim() || (await db.getSetting(env.DB, "join_code"))?.trim() || undefined;
+}
+
+/** What the "unlocked" cookie holds. Changing the join code locks every phone out again. */
+async function gateValue(code: string): Promise<string> {
+  return db.sha256(`health-bet-gate:${code}`);
+}
+
+async function unlocked(request: Request, env: Env): Promise<boolean> {
+  if (await rememberedMe(request, env)) return true; // a phone that opened its own page is a player's phone
+  const code = await joinCode(env);
+  const got = request.headers.get("cookie")?.match(/(?:^|;\s*)hb_in=([0-9a-f]+)/)?.[1];
+  return Boolean(code && got && got === (await gateValue(code)));
+}
+
 const FLASH = "hb_join_error";
 const DONE = "hb_join_done";
 
-function setCookie(name: string, value: unknown, maxAge: number): string {
+function setCookie(name: string, value: unknown, maxAge: number, path = "/join"): string {
   const v = btoa(unescape(encodeURIComponent(JSON.stringify(value))));
-  return `${name}=${v}; Path=/join; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
+  return `${name}=${v}; Path=${path}; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
 }
 
-function clearCookie(name: string): string {
-  return `${name}=; Path=/join; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+function clearCookie(name: string, path = "/join"): string {
+  return `${name}=; Path=${path}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+}
+
+function rememberCookie(token: string): string {
+  return `${ME}=${token}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`;
 }
 
 function readCookie(request: Request, name: string): any {
@@ -121,17 +174,15 @@ async function handleJoin(request: Request, env: Env): Promise<Response> {
   const poke = String(form.get("poke") ?? "").trim() || null;
   const color = form.get("color") === "green" ? "green" : form.get("color") === "pink" ? "pink" : null;
   const fail = (error: string) => redirect("/join", setCookie(FLASH, { error, name }, 60));
-  // The JOIN_CODE secret wins; otherwise the code saved in the database's settings.
-  const joinCode = env.JOIN_CODE?.trim() || (await db.getSetting(env.DB, "join_code"))?.trim();
-  if (!joinCode) return fail("This app doesn't have a join code set up yet.");
-  if (code !== joinCode) return fail("That join code isn't right.");
+  const expected = await joinCode(env);
+  if (!expected) return fail("This app doesn't have a join code set up yet.");
+  if (code !== expected) return fail("That join code isn't right.");
   if (!name) return fail("Enter your name.");
 
   const apiKey = `hb_${randomToken(24)}`;
   const meToken = randomToken(18);
   await db.joinPlayer(env.DB, name, await db.sha256(apiKey), meToken, poke, color);
 
-  if (!(await db.getSetting(env.DB, "board_token"))) await db.setSetting(env.DB, "board_token", randomToken(18));
   const player = (await db.listPlayers(env.DB)).find((p) => p.name.toLowerCase() === name.toLowerCase())!;
   return redirect("/join/done", setCookie(DONE, { name: player.name, apiKey, meToken, hasPoke: Boolean(player.poke_api_key) }, 600));
 }

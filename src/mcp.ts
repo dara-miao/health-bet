@@ -183,7 +183,7 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
         now,
         formatOffset(utcOffsetMinutes(now, env.GAME_TZ)),
         `${origin}/me/${await db.privateToken(env.DB, player.id)}`,
-        `${origin}/b/${(await db.getSetting(env.DB, "board_token")) ?? ""}`,
+        `${origin}/`,
       );
 
     case "log_food": {
