@@ -26,7 +26,7 @@ const CSS = `
   --grid: #ebebe7; --axis: #d6d6d0; --ring: #e4e4df;
   --series-1: #d17aa0; --series-2: #4b8f5d;
   --good: #0d0d0c; --critical: #a85d00;
-  --sans: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sans: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -48,10 +48,10 @@ const CSS = `
 body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 var(--sans); }
 main { max-width: 760px; margin: 0 auto; padding-block: 18px 56px; padding-inline: 16px; }
 a { color: inherit; }
-h1 { font: 800 15px/1 var(--sans); font-stretch: 112%; letter-spacing: 0.14em; text-transform: uppercase; margin: 0; }
-h2 { font: 600 11px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 26px 4px 10px; }
+h1 { font: 700 19px/1.1 var(--sans); margin: 0; }
+h2 { font: 600 16px/1.2 var(--sans); color: var(--ink-2); margin: 26px 4px 10px; }
 h3 { font: 700 15px/1.2 var(--sans); margin: 0; }
-.big, .v { font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.big, .v { font-weight: 700; font-variant-numeric: tabular-nums; }
 nav { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 18px; }
 nav .links { display: flex; background: var(--surface); border-radius: 999px; padding: 3px; }
 nav .links a { color: var(--muted); text-decoration: none; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
@@ -59,11 +59,11 @@ nav .links a[aria-current] { color: var(--ink); background: var(--raise); }
 .card { background: var(--surface); border-radius: 22px; padding: 16px; }
 .muted { color: var(--muted); }
 .sub { color: var(--ink-2); }
-.date { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 4px 10px; }
+.date { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 4px 10px; }
 .faces { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .face { background: var(--surface); border-radius: 26px; padding: 16px 12px 14px; text-align: center; min-width: 0; }
 .face svg { width: 100%; max-width: 150px; height: auto; display: block; margin: 0 auto; }
-.face .n { font-weight: 700; font-stretch: 112%; letter-spacing: 0.08em; text-transform: uppercase; font-size: 13px; margin-top: 8px; }
+.face .n { font-weight: 700; font-size: 13px; margin-top: 8px; }
 .face .d { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
 .banner { margin-top: 10px; padding: 12px 16px; border-radius: 18px; background: var(--surface); font-size: 14px; color: var(--ink-2); }
@@ -74,9 +74,9 @@ nav .links a[aria-current] { color: var(--ink); background: var(--raise); }
 .pcard .head .t { font-size: 13px; color: var(--muted); font-weight: 600; }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--ring); border-radius: 16px; overflow: hidden; }
 .stat { background: var(--raise); padding: 10px 12px 11px; min-width: 0; }
-.stat .k { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+.stat .k { font-size: 13px; color: var(--muted); font-weight: 600; }
 .stat .v { font-size: 26px; line-height: 1.15; }
-.stat .v small { font-size: 13px; color: var(--muted); font-weight: 500; font-stretch: 100%; letter-spacing: 0; }
+.stat .v small { font-size: 13px; color: var(--muted); font-weight: 500; letter-spacing: 0; }
 .stat .s { font-size: 12px; font-weight: 600; color: var(--muted); }
 .ok { color: var(--good); font-weight: 700; }
 .ok::before { content: "✓ "; }
@@ -86,10 +86,10 @@ table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nu
 th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--grid); font-size: 14px; white-space: nowrap; }
 tr:last-child td { border-bottom: 0; }
 @media (max-width: 480px) { th, td { padding: 9px 4px; } .wk th.n, .wk td.n { padding: 9px 3px; } }
-th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+th { color: var(--muted); font-weight: 600; font-size: 13px; }
 td.n, th.n { text-align: right; }
 td.p4 { color: var(--ink); font-weight: 800; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
-.wk td.n { font-weight: 700; font-stretch: 85%; font-size: 16px; }
+.wk td.n { font-weight: 700; font-size: 16px; }
 .table-wrap { overflow-x: auto; }
 .rules { color: var(--muted); font-size: 12px; margin: 10px 2px 0; }
 .meal { padding: 12px 2px; border-bottom: 1px solid var(--grid); }
@@ -105,14 +105,14 @@ td.p4 { color: var(--ink); font-weight: 800; text-decoration: underline; text-de
 .meal-head button:hover, .day-head button:hover { filter: brightness(1.15); }
 .day-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 26px 4px 10px; }
 .day-head h2 { margin: 0; }
-.chip { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--raise); color: var(--ink-2); margin-left: 6px; }
+.chip { font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--raise); color: var(--ink-2); margin-left: 6px; }
 .chip.on { color: var(--ink); background: var(--axis); }
 .private-note { margin: 0 0 12px; padding: 12px 16px; border-radius: 18px; background: var(--surface); color: var(--ink-2); font-size: 14px; }
 .chips { display: flex; gap: 6px; }
 .chips a { padding: 6px 14px; border-radius: 999px; text-decoration: none; color: var(--muted); background: var(--surface); font-size: 13px; font-weight: 600; }
 .chips a[aria-current] { color: var(--page); background: var(--ink); }
 .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
-.charts .card h3 { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 6px; }
+.charts .card h3 { font-size: 13px; color: var(--ink-2); margin-bottom: 6px; }
 .charts .card h3 .muted { text-transform: none; letter-spacing: 0; }
 .chart { position: relative; height: 190px; outline: none; }
 .chart:focus-visible { box-shadow: 0 0 0 2px var(--ink); border-radius: 8px; }
@@ -120,10 +120,10 @@ td.p4 { color: var(--ink); font-weight: 800; text-decoration: underline; text-de
 .chart .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
 .tip { position: absolute; pointer-events: none; background: var(--raise); border-radius: 12px;
   padding: 7px 11px; font-size: 12px; white-space: nowrap; display: none; z-index: 2; }
-.tip strong { display: block; font-size: 17px; font-weight: 800; font-stretch: 80%; }
+.tip strong { display: block; font-size: 17px; font-weight: 700; }
 details { margin: 10px 4px 0; }
 summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-form label { display: block; margin: 14px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+form label { display: block; margin: 14px 0 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
 input { width: 100%; padding: 12px 14px; font: inherit; border-radius: 14px; border: 1px solid var(--axis); background: var(--raise); color: var(--ink); }
 input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 button { margin-top: 20px; padding: 12px 22px; font: 700 15px/1 var(--sans); border-radius: 999px; border: 0; background: var(--ink); color: var(--page); cursor: pointer; }
@@ -144,7 +144,7 @@ main.narrow { max-width: 460px; padding-block: 48px 64px; }
 .form input[type="text"], .form input:not([type]) { padding: 13px 14px; }
 .form input::placeholder { color: var(--muted); }
 .tiles { border: 0; padding: 0; margin: 18px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.tiles legend { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; padding: 0; }
+.tiles legend { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; padding: 0; }
 .tile { position: relative; margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 10px 12px; border-radius: 20px;
   background: var(--raise); cursor: pointer; font-size: 14px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--ink); }
 .tile input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
@@ -166,7 +166,7 @@ button.wide { width: 100%; margin-top: 20px; padding: 15px; font-size: 16px; }
 .steps > li::before { content: counter(step); position: absolute; left: 0; top: 15px; width: 26px; height: 26px; border-radius: 50%;
   background: var(--ink); color: var(--page); font-weight: 800; font-size: 13px; display: grid; place-items: center; }
 .steps h3 { font-size: 16px; }
-.steps .field { margin: 12px 2px 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.steps .field { margin: 12px 2px 0; font-size: 13px; font-weight: 600; color: var(--muted); }
 .copy { display: flex; gap: 8px; align-items: center; margin-top: 8px; padding: 6px 6px 6px 12px; border-radius: 14px; background: var(--raise); }
 .copy code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
 .copy .pill { flex: none; background: var(--ink); color: var(--page); }
@@ -176,13 +176,13 @@ button.wide { width: 100%; margin-top: 20px; padding: 15px; font-size: 16px; }
 .go span { display: block; color: var(--muted); font-size: 13px; margin-top: 4px; }
 .go:hover { background: var(--raise); }
 fieldset.colors { border: 0; padding: 0; margin: 14px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
-fieldset.colors legend { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; padding: 0; }
+fieldset.colors legend { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; padding: 0; }
 fieldset.colors label { margin: 0; display: flex; align-items: center; gap: 4px; padding: 10px 16px; border-radius: 999px; background: var(--raise);
   font-size: 14px; letter-spacing: 0; text-transform: none; color: var(--ink); font-weight: 600; cursor: pointer; }
 fieldset.colors input { width: auto; margin: 0 6px 0 0; accent-color: var(--ink); }
 fieldset.colors label:has(input:checked) { box-shadow: inset 0 0 0 2px var(--ink); }
 .lede { color: var(--ink-2); margin: 8px 4px 16px; }
-.title { font: 800 28px/1.1 var(--sans); font-stretch: 85%; margin: 6px 4px 0; }
+.title { font: 800 28px/1.1 var(--sans); margin: 6px 4px 0; }
 `;
 
 function layout(title: string, body: string, script = "", mainClass = ""): Response {
@@ -194,7 +194,7 @@ function layout(title: string, body: string, script = "", mainClass = ""): Respo
 <meta name="apple-mobile-web-app-title" content="Health Bet"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)"><meta name="theme-color" content="#efefec" media="(prefers-color-scheme: light)">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400..800&display=swap">
 <style>${CSS}</style></head>
 <body><main${mainClass ? ` class="${mainClass}"` : ""}>${body}</main>${script}</body></html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
@@ -357,7 +357,7 @@ function face(name: string, i: number, weekPts: number, todayPts: number): strin
   return `<div class="face"><svg viewBox="0 0 120 120" role="img" aria-label="${esc(name)}: ${weekPts} points this week, ${todayPts} of 4 today">
       <circle cx="60" cy="60" r="50" fill="none" stroke="var(--raise)" stroke-width="10"/>
       ${arc > 0 ? `<circle cx="60" cy="60" r="50" fill="none" stroke="${seriesVar(i)}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${arc.toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 60 60)"/>` : ""}
-      <text x="60" y="71" text-anchor="middle" fill="var(--ink)" font-family="Archivo, sans-serif" font-weight="800" font-size="36" style="font-stretch:75%">${weekPts}</text>
+      <text x="60" y="71" text-anchor="middle" fill="var(--ink)" font-family="Rubik, sans-serif" font-weight="700" font-size="34">${weekPts}</text>
     </svg><div class="n">${esc(name)}</div><div class="d">${todayPts}/4 today</div></div>`;
 }
 
