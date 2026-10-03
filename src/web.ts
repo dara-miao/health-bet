@@ -17,8 +17,8 @@ const SERIES = ["--series-1", "--series-2"];
 const seriesVar = (i: number) => `var(${SERIES[i % SERIES.length]})`;
 
 const CSS = `
-/* Three themes: warm white, black, ocean. A phone's pick is saved in localStorage and set as
-   data-theme before paint; with no pick, it follows the phone's light/dark setting.
+/* Three themes: warm white (the default), black, ocean. A phone's pick is saved in localStorage
+   and set as data-theme before paint.
    Player colors are validated per theme; status never uses a player hue (hits are a check in ink,
    misses are amber). */
 :root {
@@ -44,30 +44,6 @@ const CSS = `
   --aura-1: rgba(209,122,160,0.16);
   --aura-2: rgba(75,143,93,0.12);
   --blur: none;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    color-scheme: dark;
-    --page: #050505;
-  --page-grad: none;
-  --surface: #111212;
-  --raise: #1a1b1b;
-  --ink: #f5f5f2;
-  --ink-2: #b9bab5;
-  --muted: #8b8c88;
-  --grid: #1f2021;
-  --axis: #2c2d2e;
-  --ring: #222324;
-  --series-1: #f0a6c6;
-  --series-2: #4f9a6a;
-  --good: #f5f5f2;
-  --critical: #f0a33a;
-  --dot: rgba(255,255,255,0.055);
-  --dot-hi: rgba(240,166,198,0.6);
-  --aura-1: rgba(240,166,198,0.10);
-  --aura-2: rgba(79,154,106,0.10);
-  --blur: none;
-  }
 }
 :root[data-theme="warm"] {
   color-scheme: light;
@@ -335,11 +311,11 @@ const THEME_BOOT = `<script>try{var t=localStorage.getItem("hb-theme");if(t)docu
 const THEME_JS = `<script>
 (() => {
   const colors = ${JSON.stringify(THEME_COLORS)};
-  const current = () => document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "black" : "warm");
+  const current = () => document.documentElement.dataset.theme || "warm";
   const sync = () => {
     const t = current();
     document.querySelectorAll(".themes button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.t === t)));
-    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.content = colors[t]; m.removeAttribute("media"); });
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.content = colors[t]; });
   };
   document.querySelectorAll(".themes button").forEach((b) => b.addEventListener("click", () => {
     document.documentElement.dataset.theme = b.dataset.t;
@@ -371,7 +347,7 @@ function layout(title: string, body: string, script = "", mainClass = ""): Respo
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="alternate icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Health Bet"><meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)"><meta name="theme-color" content="#f6f0e7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#f6f0e7">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400..800&family=Yellowtail&display=swap">
 <style>${CSS}</style></head>
