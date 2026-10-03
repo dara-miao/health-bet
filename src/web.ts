@@ -188,7 +188,11 @@ fieldset.colors label:has(input:checked) { box-shadow: inset 0 0 0 2px var(--ink
 function layout(title: string, body: string, script = "", mainClass = ""): Response {
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex"><title>${esc(title)}</title>
+<meta name="robots" content="noindex"><title>${esc(title === "Health Bet" ? title : `${title} · Health Bet`)}</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="alternate icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Health Bet"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)"><meta name="theme-color" content="#efefec" media="(prefers-color-scheme: light)">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
 <style>${CSS}</style></head>
@@ -233,7 +237,7 @@ function colorTile(value: "pink" | "green", label: string, series: string, arc: 
 
 export function joinPage(error = "", name = ""): Response {
   return layout(
-    "Join Health Bet",
+    "Join",
     `<header class="onboard">${MARK}<h1 class="title">Join the bet</h1>
       <p class="lede">Food, sleep, and wake-up.<br>Lowest per week loses.</p></header>
     <form method="post" class="card form">
@@ -397,7 +401,7 @@ export async function boardPage(env: Env, now: Date): Promise<Response> {
     .join("");
 
   return layout(
-    "Scoreboard",
+    "Health Bet",
     `${nav("board")}
     <div class="date"><span>${prettyDay(today)}</span><span>Week of ${prettyDay(start).slice(4)}</span></div>
     <div class="faces">${hero || '<div class="card">No players yet.</div>'}</div>${banner}

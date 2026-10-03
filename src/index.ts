@@ -4,6 +4,7 @@ import { dayRecap, eveningNudge, weekVerdict } from "./game";
 import { handleMcp } from "./mcp";
 import { sendToPoke } from "./poke";
 import { addDays, gameDay, localParts, weekStart } from "./time";
+import { ICON_PNG_180, ICON_PNG_512, ICON_PNG_64, ICON_SVG, MANIFEST } from "./icons";
 import { boardPage, historyPage, joinPage, joinSuccess, lockedPage, meLoginPage, privatePage } from "./web";
 
 const RECAP_HOUR = 10; // daily recap (and Monday's weekly verdict) goes out at 10am
@@ -15,6 +16,15 @@ export default {
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
     if (path === "/mcp") return handleMcp(request, env);
+
+    const cached = (body: BodyInit, type: string) =>
+      new Response(body, { headers: { "content-type": type, "cache-control": "public, max-age=86400" } });
+    const png = (b64: string) => cached(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)), "image/png");
+    if (path === "/favicon.svg") return cached(ICON_SVG, "image/svg+xml");
+    if (path === "/favicon.ico") return png(ICON_PNG_64);
+    if (path === "/apple-touch-icon.png" || path === "/apple-touch-icon-precomposed.png") return png(ICON_PNG_180);
+    if (path === "/icon-512.png") return png(ICON_PNG_512);
+    if (path === "/manifest.webmanifest") return cached(MANIFEST, "application/manifest+json");
 
     if (path === "/join") {
       if (request.method === "POST") return handleJoin(request, env);
