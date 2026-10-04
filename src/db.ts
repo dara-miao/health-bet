@@ -1,3 +1,4 @@
+import type { Workout } from "./gym";
 import { EMPTY_DAY, type DayStats, type GoalType, type Rules } from "./scoring";
 
 export interface Env {
@@ -37,12 +38,13 @@ export interface Player {
   protein_target: number | null;
   fat_target: number | null;
   carb_target: number | null;
+  workout_target: number | null;
   goal_weight_lb: number | null;
   pending_bed_at: string | null;
 }
 
 const PLAYER_COLS =
-  "id, name, poke_api_key, goal_type, calorie_target, protein_target, fat_target, carb_target, goal_weight_lb, pending_bed_at";
+  "id, name, poke_api_key, goal_type, calorie_target, protein_target, fat_target, carb_target, workout_target, goal_weight_lb, pending_bed_at";
 
 export interface FoodEntry {
   id: number;
@@ -294,6 +296,35 @@ export async function weightsForPlayer(db: D1Database, playerId: number): Promis
     .bind(playerId)
     .all<{ day: string; lb: number }>();
   return results;
+}
+
+// ---------- workouts ----------
+
+export async function saveWorkout(db: D1Database, playerId: number, w: Workout) {
+  await db
+    .prepare(
+      `INSERT INTO workouts (player_id, day, kind, note) VALUES (?, ?, ?, ?)
+       ON CONFLICT (player_id, day) DO UPDATE SET kind = excluded.kind, note = excluded.note`,
+    )
+    .bind(playerId, w.day, w.kind, w.note)
+    .run();
+}
+
+export async function deleteWorkout(db: D1Database, playerId: number, day: string): Promise<boolean> {
+  const r = await db.prepare("DELETE FROM workouts WHERE player_id = ? AND day = ?").bind(playerId, day).run();
+  return r.meta.changes > 0;
+}
+
+export async function workoutsForPlayer(db: D1Database, playerId: number, from: string): Promise<Workout[]> {
+  const { results } = await db
+    .prepare("SELECT day, kind, note FROM workouts WHERE player_id = ? AND day >= ? ORDER BY day")
+    .bind(playerId, from)
+    .all<Workout>();
+  return results;
+}
+
+export async function setWorkoutTarget(db: D1Database, id: number, perWeek: number) {
+  await db.prepare("UPDATE players SET workout_target = ? WHERE id = ?").bind(perWeek, id).run();
 }
 
 // ---------- misc ----------

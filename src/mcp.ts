@@ -3,20 +3,22 @@
 // so every tool call already knows who is logging.
 import * as db from "./db";
 import type { Env, FoodItem, Player } from "./db";
-import { UserError, goToBed, goalLine, logNight, mealTotals, statusReport, totalsLine, wakeUp } from "./game";
-import { addDays, formatOffset, gameDay, parseTime, utcOffsetMinutes } from "./time";
+import { UserError, goToBed, goalLine, gymLine, gymSummary, logNight, mealTotals, statusReport, totalsLine, wakeUp } from "./game";
+import { WORKOUT_KINDS, type WorkoutKind } from "./gym";
+import { addDays, formatOffset, gameDay, parseTime, prettyDay, utcOffsetMinutes } from "./time";
 
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `This is the scorekeeper for a health bet between friends (food and sleep). The person messaging you is a player; log what they tell you.
+const INSTRUCTIONS = `This is the scorekeeper for a health bet between friends (food and sleep), plus a gym consistency tracker. The person messaging you is a player; log what they tell you.
 
-Each day a player earns 1 point for their calorie goal (cut: stay at or under; bulk: reach at least), 1 for their protein goal, 1 for sleeping at least the sleep target, and 1 for getting up by the wake-up time (get_status shows it). Fat and carbs are tracked and shown but not scored. Lowest weekly total (Mon to Sun) loses and does the punishment.
+Each day a player earns 1 point for their calorie goal (cut: stay at or under; bulk: reach at least), 1 for their protein goal, 1 for sleeping at least the sleep target, and 1 for getting up by the wake-up time (get_status shows it). Fat, carbs and workouts are tracked and shown but not scored. Lowest weekly total (Mon to Sun) loses and does the punishment.
 
 Privacy: other players see only points, calorie and protein totals, sleep, and wake-up times. Meals, fat, carbs and weight are private unless the player shares a specific meal. Never reveal another player's private details.
 
 - When they mention food they ate (or send a photo), estimate it and call log_food right away. Don't ask permission first.
 - Clarifying questions: if something they didn't specify would swing the estimate a lot (roughly 150+ calories or 15g+ protein: a portion of granola, nut butter, rice or pasta, a sauce or dressing, how it was cooked, which restaurant or brand), log your best guess first, then ask ONE short question with your assumption in it, e.g. "Logged the bowl assuming ⅓ cup granola. Was it more like ½ cup?" When they answer, fix that item with edit_food. Don't ask about small things (a handful of berries, a splash of milk), and don't ask more than one question per meal. If they don't answer, keep the guess.
 - Sleep: any way of saying they're going to sleep ("gn", "going to bed", "night", "heading to sleep") means sleep_start. Any way of saying they woke up ("gm", "just woke up", "I'm up", "morning") means sleep_end. The wake-up time counts for a point, so log it right away; if they say they got up earlier ("up since 8"), pass that time. A plain greeting like "hi" or "hey" is not a wake-up. But if get_status shows they're still in bed and it's morning, ask "Did you just wake up?" before logging, and use the time they confirm.
+- Workouts: when they say they went to the gym, worked out, lifted, played a sport, or went for a run ("hit legs", "just got back from the gym", "played tennis", "ran 3 miles"), call log_workout right away. One per day; a second one the same day just replaces the first. If they say they didn't actually go, remove_workout. Workouts aren't scored; they fill in a GitHub-style consistency grid both players can see. When they set a weekly goal ("I want to go 3 times a week"), set_workout_target.
 - Call get_status before answering questions about progress, and before editing or deleting so you have the right ids.
 - Reply like a text message: short, plain text, with their running totals vs goals after each log.`;
 
@@ -144,6 +146,29 @@ Meals: leave meal_id null to start a new meal. Pass an existing meal_id (from ge
     },
   },
   {
+    name: "log_workout",
+    description: "Mark a day as a workout day on the consistency grid. Not scored. One per day.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["gym", "sport", "run"], description: "gym = lifting, classes, any gym session; sport = tennis, climbing, a game, etc.; run = a run" },
+        note: { type: ["string", "null"], description: "Optional, a few words: 'legs', 'tennis', '5k'." },
+        day: { type: ["string", "null"], description: "YYYY-MM-DD to backdate ('I went yesterday'). Null for today." },
+      },
+      required: ["kind"],
+    },
+  },
+  {
+    name: "remove_workout",
+    description: "Unmark a workout day (logged by mistake, or they didn't actually go).",
+    inputSchema: { type: "object", properties: { day: { type: ["string", "null"], description: "YYYY-MM-DD. Null for today." } } },
+  },
+  {
+    name: "set_workout_target",
+    description: "Set how many workouts a week the player is aiming for. Their streak counts weeks that hit it.",
+    inputSchema: { type: "object", properties: { per_week: { type: "integer", minimum: 1, maximum: 7 } }, required: ["per_week"] },
+  },
+  {
     name: "set_punishment",
     description: "Set what this week's loser has to do. Shared by everyone.",
     inputSchema: { type: "object", properties: { punishment: { type: "string" } }, required: ["punishment"] },
@@ -152,6 +177,16 @@ Meals: leave meal_id null to start a new meal. Pass an existing meal_id (from ge
 }
 
 type Args = Record<string, any>;
+
+/** A YYYY-MM-DD day from an agent: today if null, clamped to today if ahead (UTC dates), at most `maxBack` days old. */
+function pastDay(raw: unknown, today: string, maxBack: number): string {
+  if (raw == null || raw === "") return today;
+  const day = String(raw);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day < addDays(today, -maxBack)) {
+    throw new ToolError(`day must be YYYY-MM-DD, today or within the past ${maxBack} days.`);
+  }
+  return day > today ? today : day;
+}
 
 const ToolError = UserError;
 
@@ -284,6 +319,30 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
         note = ` That's at or under the ${goal} lb goal. Time to switch to a maintenance target (ask them, then set_goal).`;
       }
       return `Logged ${lb} lb for ${today}.${goal != null ? ` Goal: ${goal} lb.` : ""}${note}`;
+    }
+
+    case "log_workout":
+    case "remove_workout": {
+      const day = pastDay(args.day, today, 14);
+      if (name === "remove_workout") {
+        const removed = await db.deleteWorkout(env.DB, player.id, day);
+        if (!removed) return `No workout logged on ${prettyDay(day)}.`;
+      } else {
+        const kind = String(args.kind) as WorkoutKind;
+        if (!WORKOUT_KINDS.includes(kind)) throw new ToolError("kind must be gym, sport, or run.");
+        const note = args.note == null ? null : String(args.note).trim().slice(0, 60) || null;
+        await db.saveWorkout(env.DB, player.id, { day, kind, note });
+      }
+      const verb = name === "remove_workout" ? "Removed the workout on" : "Workout logged for";
+      return `${verb} ${prettyDay(day)}. ${gymLine(player, await gymSummary(env, player, today))}.`;
+    }
+
+    case "set_workout_target": {
+      const n = Math.round(Number(args.per_week));
+      if (!(n >= 1 && n <= 7)) throw new ToolError("per_week must be 1 to 7.");
+      await db.setWorkoutTarget(env.DB, player.id, n);
+      const p = (await db.getPlayer(env.DB, player.id))!;
+      return `Workout target set to ${n} a week. ${gymLine(p, await gymSummary(env, p, today))}.`;
     }
 
     case "set_punishment": {

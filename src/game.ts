@@ -1,6 +1,7 @@
 import * as db from "./db";
 import type { Env, MealWithItems, Player } from "./db";
 import { EMPTY_DAY, calorieGoalMet, proteinGoalMet, scoreDay, sleepGoalMet, wakeMinutes, wakeTarget, weekLoser, type DayStats } from "./scoring";
+import { weekCount, weekStreak, type Workout } from "./gym";
 import { addDays, gameDay, localParts, prettyClock, prettyDay, prettyDuration, prettyTime, weekDays, weekStart } from "./time";
 
 const MAX_SLEEP_MINUTES = 16 * 60;
@@ -185,6 +186,8 @@ export async function statusReport(env: Env, player: Player, now: Date, offset: 
     players.map(async (pl) => (pl.id === player.id ? [] : (await db.mealsForDay(env.DB, pl.id, today)).filter((m) => m.shared_at))),
   );
   const r = db.rules(env);
+  const gym = await Promise.all(players.map((pl) => gymSummary(env, pl, today)));
+  const me = players.findIndex((x) => x.id === player.id);
 
   const mealLines = (list: MealWithItems[]) =>
     list.length === 0
@@ -201,6 +204,7 @@ export async function statusReport(env: Env, player: Player, now: Date, offset: 
     `Now: ${localIso} (${tz}). Game day: ${today} (${prettyDay(today)}). Days roll over at 4am.`,
     `Player: ${player.name}. Goal: ${goalLine(player)}. Sleep target: ${prettyDuration(r.sleepTargetMinutes)}. Wake-up: by ${prettyClock(r.wakeWeekday)} weekdays, ${prettyClock(r.wakeWeekend)} Sat/Sun, ${r.wakeGraceMinutes} min grace.`,
     ...statusLines(env, player, stats[players.findIndex((x) => x.id === player.id)] ?? EMPTY_DAY, today).map((l) => `  ${l}`),
+    me >= 0 ? `  ${gymLine(player, gym[me])}. Gym is tracked for consistency only, not scored.` : "",
     player.pending_bed_at ? `In bed since ${prettyTime(player.pending_bed_at, tz)}; hasn't logged waking up.` : "",
     lastWeight
       ? `Latest weight: ${lastWeight.lb} lb on ${lastWeight.day}${player.goal_weight_lb ? `, goal ${player.goal_weight_lb} lb` : ""}.`
@@ -211,12 +215,12 @@ export async function statusReport(env: Env, player: Player, now: Date, offset: 
     `Yesterday's meals (${addDays(today, -1)}):`,
     ...mealLines(yesterdayMeals),
     "",
-    "Other players today (only what's shared: points, calories, protein, sleep, wake-up; their meals, fat, carbs and weight are private):",
+    "Other players today (only what's shared: points, calories, protein, sleep, wake-up, workouts; their meals, fat, carbs and weight are private):",
     ...players
       .map((pl, i) => ({ pl, i }))
       .filter(({ pl }) => pl.id !== player.id)
       .flatMap(({ pl, i }) => [
-        `  ${pl.name} (${goalLine(pl, true)}): ${statusLines(env, pl, stats[i], today, { shared: true }).join(" | ")}`,
+        `  ${pl.name} (${goalLine(pl, true)}): ${statusLines(env, pl, stats[i], today, { shared: true }).join(" | ")} | ${gymLine(pl, gym[i])}`,
         ...sharedToday[i].map((m) => `    shared meal${m.name ? ` "${m.name}"` : ""}: ${m.items.map((it) => `${it.description} (${it.calories} cal, ${it.protein_g}g P)`).join("; ")}`),
       ]),
     "",
@@ -227,6 +231,32 @@ export async function statusReport(env: Env, player: Player, now: Date, offset: 
     `Shared scoreboard (both players): ${boardUrl}`,
   ];
   return lines.filter((l, i) => l !== "" || lines[i - 1] !== "").join("\n");
+}
+
+export interface GymSummary {
+  workouts: Workout[];
+  thisWeek: number;
+  streak: number;
+  total: number;
+}
+
+/** Workouts since the bet started (or ever, if it has no start date). Shared with everyone. */
+export async function gymSummary(env: Env, player: Player, today: string): Promise<GymSummary> {
+  const from = (await betStart(env)) ?? "0000-00-00";
+  const workouts = await db.workoutsForPlayer(env.DB, player.id, from);
+  const days = new Set(workouts.map((w) => w.day));
+  return {
+    workouts,
+    thisWeek: weekCount(days, today),
+    streak: weekStreak(days, player.workout_target, from === "0000-00-00" ? (workouts[0]?.day ?? today) : from, today),
+    total: workouts.length,
+  };
+}
+
+export function gymLine(p: Player, g: GymSummary): string {
+  const target = p.workout_target ? ` / ${p.workout_target} target` : " (no weekly target set)";
+  const streak = p.workout_target ? `, streak ${g.streak} week${g.streak === 1 ? "" : "s"}` : "";
+  return `🏋️ ${g.thisWeek} workout${g.thisWeek === 1 ? "" : "s"} this week${target}${streak}, ${g.total} total`;
 }
 
 /** Short version for the end of tool results. */

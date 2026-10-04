@@ -58,6 +58,7 @@ Each day, each player can earn up to **4 points**:
 | ⏰ Wake-up | up by 8:30 weekdays, 10:30 weekends (10 min grace) | same |
 
 - Fat and carbs are tracked and shown but not scored.
+- **Gym consistency is tracked on the side, not scored:** a GitHub-style grid of workout days (gym, sport, or run) for each player, with a streak of weeks that hit their own weekly goal.
 - Logging nothing doesn't count as a perfect cut day.
 - Weeks run Monday to Sunday. The lowest total loses. Ties go to whoever slept more.
 - Days roll over at **4am**, so a 1am snack counts for the night before. Sleep counts toward the day you wake up.
@@ -72,6 +73,7 @@ Friendly competition, not surveillance. The other player sees only what the bet 
 | Points and standings | ✓ | ✓ |
 | Calorie and protein totals | ✓ | ✓ |
 | Sleep and wake-up times | ✓ | ✓ |
+| Workout days and streaks | ✓ | ✓ |
 | Meals | only ones you choose to share | ✓ all |
 | Fat and carbs | – | ✓ |
 | Weight | – | ✓ |
@@ -88,6 +90,7 @@ This is enforced on the server. When your friend's agent asks for status, the re
 | `sleep_start` / `sleep_end` | "gn" and "gm"; computes duration and the wake-up point |
 | `log_sleep` | A whole night after the fact ("slept 1 to 8") |
 | `get_status` | Current time, goals, today's meals with ids, the other player's shared stats, the week's standings |
+| `log_workout` / `remove_workout` / `set_workout_target` | Mark a gym, sport, or run day on the consistency grid, and set the weekly goal the streak counts |
 | `set_goal` / `log_weight` / `set_punishment` | Goals, private weigh-ins, and the stakes |
 
 The server also sends the agent instructions on connect: log first and ask at most one clarifying question when a guess could be off by 150+ calories, treat any phrasing of "going to bed" or "woke up" as sleep, and never reveal the other player's private data.
@@ -118,6 +121,7 @@ src/
   mcp.ts       MCP server: JSON-RPC handling, tools, agent instructions
   game.ts      sleep logging, reports, status text (with the privacy filter)
   scoring.ts   the scoring rules as pure functions
+  gym.ts       weekly workout counts and streaks
   time.ts      time zones, 4am rollover, ISO parsing
   web.ts       scoreboard, history charts, private page, onboarding
   poke.ts      outgoing messages via Poke
