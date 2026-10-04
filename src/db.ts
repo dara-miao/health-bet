@@ -303,21 +303,24 @@ export async function weightsForPlayer(db: D1Database, playerId: number): Promis
 export async function saveWorkout(db: D1Database, playerId: number, w: Workout) {
   await db
     .prepare(
-      `INSERT INTO workouts (player_id, day, kind, note) VALUES (?, ?, ?, ?)
-       ON CONFLICT (player_id, day) DO UPDATE SET kind = excluded.kind, note = excluded.note`,
+      "INSERT INTO workouts (player_id, day, kind, note) VALUES (?, ?, ?, ?)",
     )
     .bind(playerId, w.day, w.kind, w.note)
     .run();
 }
 
 export async function deleteWorkout(db: D1Database, playerId: number, day: string): Promise<boolean> {
-  const r = await db.prepare("DELETE FROM workouts WHERE player_id = ? AND day = ?").bind(playerId, day).run();
+  // One at a time: the most recent workout that day.
+  const r = await db
+    .prepare("DELETE FROM workouts WHERE id = (SELECT id FROM workouts WHERE player_id = ? AND day = ? ORDER BY id DESC LIMIT 1)")
+    .bind(playerId, day)
+    .run();
   return r.meta.changes > 0;
 }
 
 export async function workoutsForPlayer(db: D1Database, playerId: number, from: string): Promise<Workout[]> {
   const { results } = await db
-    .prepare("SELECT day, kind, note FROM workouts WHERE player_id = ? AND day >= ? ORDER BY day")
+    .prepare("SELECT day, kind, note FROM workouts WHERE player_id = ? AND day >= ? ORDER BY day, id")
     .bind(playerId, from)
     .all<Workout>();
   return results;

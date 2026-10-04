@@ -4,7 +4,8 @@ import * as db from "./db";
 import type { Env, Player } from "./db";
 import { betStart, dayStats, gymSummary, mealTotals, weekBoard, type GymSummary } from "./game";
 import { EMPTY_DAY, calorieGoalMet, proteinGoalMet, scoreDay, wakeGoalMet, wakeMinutes, wakeTarget, type DayStats } from "./scoring";
-import { addDays, gameDay, prettyClock, prettyDay, prettyDuration, prettyTime, weekStart } from "./time";
+import type { Workout } from "./gym";
+import { addDays, gameDay, prettyClock, prettyDay, prettyDuration, prettyTime, weekDays, weekStart } from "./time";
 
 export function esc(s: unknown): string {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -206,9 +207,11 @@ td.p4 { color: var(--ink); font-weight: 800; text-decoration: underline; text-de
 .gym-grid .dl { font-size: 9px; }
 .gym-grid .ml { overflow: visible; }
 .gym-grid .c { margin: 0; border-radius: 3px; background: var(--raise); padding: 0; border: 0; cursor: pointer; }
-.gym-grid .c.on { background: var(--gc); }
+.gym-grid .c.on1 { background: color-mix(in srgb, var(--gc) 55%, transparent); }
+.gym-grid .c.on2 { background: var(--gc); }
+.gym-key { display: inline-flex; align-items: center; gap: 4px; }
+.gym-key i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; background: var(--raise); }
 .gym-grid .c.future { background: transparent; box-shadow: inset 0 0 0 1px var(--grid); cursor: default; }
-.gym-grid .c.pre { visibility: hidden; }
 .gym-grid button.c:hover { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
 .gym-grid .c.today { outline: 1.5px solid var(--ink-2); outline-offset: 1px; }
 .gym-grid .c:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
@@ -655,32 +658,42 @@ export async function boardPage(env: Env, now: Date): Promise<Response> {
 
 // ---------- gym ----------
 
-const GYM_MIN_WEEKS = 12;
 const KIND_LABEL = { gym: "Gym", sport: "Sport", run: "Run" } as const;
 
-/** GitHub-style grid: one column per Mon-Sun week from the bet's start, a filled square per workout day. */
+/**
+ * GitHub-style grid: one column per Mon-Sun week, from the week the bet started through this week,
+ * so it grows a column each week. 1 workout = lighter square, 2+ = full color.
+ */
 function gymRow(p: Player, i: number, g: GymSummary, from: string, today: string): string {
-  const byDay = new Map(g.workouts.map((w) => [w.day, w]));
+  const byDay = new Map<string, Workout[]>();
+  for (const w of g.workouts) byDay.set(w.day, [...(byDay.get(w.day) ?? []), w]);
   const first = weekStart(from);
-  const weeks = Math.max(GYM_MIN_WEEKS, Math.round((Date.parse(weekStart(today)) - Date.parse(first)) / (7 * 864e5)) + 1);
+  const weeks = Math.round((Date.parse(weekStart(today)) - Date.parse(first)) / (7 * 864e5)) + 1;
+  // Label a column with a month when that month's 1st falls in it; the first column gets one too
+  // unless a label lands right next to it.
+  const monthStart = (monday: string) => weekDays(monday).find((d) => d.endsWith("-01"));
   const cells: string[] = ["<span></span>", ...["Mon", "", "Wed", "", "Fri", "", "Sun"].map((d) => `<span class="dl">${d}</span>`)];
-  let lastMonth = -1;
   for (let w = 0; w < weeks; w++) {
     const monday = addDays(first, w * 7);
-    const month = Number(monday.slice(5, 7));
-    cells.push(`<span class="ml">${month !== lastMonth ? prettyDay(monday).slice(4, 7) : ""}</span>`);
-    lastMonth = month;
-    for (let d = 0; d < 7; d++) {
-      const day = addDays(monday, d);
-      const wk = byDay.get(day);
-      const label = `${prettyDay(day)}: ${wk ? `${KIND_LABEL[wk.kind]}${wk.note ? `, ${wk.note}` : ""}` : day > today ? "coming up" : "rest day"}`;
-      const cls = ["c", day < from ? "pre" : day > today ? "future" : wk ? "on" : "", day === today ? "today" : ""].filter(Boolean).join(" ");
-      cells.push(day < from ? `<span class="${cls}"></span>` : `<button type="button" class="${cls}" aria-label="${esc(label)}" title="${esc(label)}" data-tip="${esc(label)}"></button>`);
+    let label = monthStart(monday);
+    if (!label && w === 0 && ![1, 2].some((k) => k < weeks && monthStart(addDays(monday, k * 7)))) label = monday;
+    cells.push(`<span class="ml">${label ? prettyDay(label).slice(4, 7) : ""}</span>`);
+    for (const day of weekDays(monday)) {
+      const list = byDay.get(day) ?? [];
+      const what = list.map((x) => `${KIND_LABEL[x.kind]}${x.note ? ` (${x.note})` : ""}`).join(" + ");
+      const text = list.length ? `${prettyDay(day)}: ${list.length > 1 ? `${list.length} workouts, ` : ""}${what}` : `${prettyDay(day)}: ${day < from ? "before the bet started" : "rest day"}`;
+      const level = list.length >= 2 ? "on2" : list.length ? "on1" : "";
+      const cls = ["c", day > today ? "future" : level, day === today ? "today" : ""].filter(Boolean).join(" ");
+      cells.push(
+        day > today
+          ? `<span class="${cls}"></span>`
+          : `<button type="button" class="${cls}" aria-label="${esc(text)}" title="${esc(text)}" data-tip="${esc(text)}"></button>`,
+      );
     }
   }
   const parts = [
-    `${g.thisWeek} this week`,
-    p.workout_target ? `goal ${p.workout_target}` : "no weekly goal yet",
+    `This week: ${g.thisWeek}${p.workout_target ? ` of ${p.workout_target}` : ""}`,
+    ...(p.workout_target ? [] : ["no goal yet"]),
     ...(g.streak ? [`🔥 ${g.streak}-week streak`] : []),
     `${g.total} total`,
   ];
@@ -695,6 +708,7 @@ async function gymCard(env: Env, players: Player[], today: string): Promise<stri
   const summaries = await Promise.all(players.map((p) => gymSummary(env, p, today)));
   return `<div class="card gym">${players.map((p, i) => gymRow(p, i, summaries[i], from, today)).join("")}
     <p class="gym-tip" aria-live="polite">Tap a square to see the day.</p>
+    <p class="rules gym-key">Rest <i></i><i style="background:color-mix(in srgb, var(--ink-2) 45%, transparent)"></i> 1 workout <i style="background:var(--ink-2)"></i> 2+ in a day</p>
     <p class="rules">Not scored, just consistency. Text your agent "hit the gym", "played tennis", or "went for a run". Set a weekly goal with "I want to work out 3 times a week"; your streak counts the weeks you hit it.</p></div>`;
 }
 

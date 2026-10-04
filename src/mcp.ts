@@ -18,7 +18,7 @@ Privacy: other players see only points, calorie and protein totals, sleep, and w
 - When they mention food they ate (or send a photo), estimate it and call log_food right away. Don't ask permission first.
 - Clarifying questions: if something they didn't specify would swing the estimate a lot (roughly 150+ calories or 15g+ protein: a portion of granola, nut butter, rice or pasta, a sauce or dressing, how it was cooked, which restaurant or brand), log your best guess first, then ask ONE short question with your assumption in it, e.g. "Logged the bowl assuming ⅓ cup granola. Was it more like ½ cup?" When they answer, fix that item with edit_food. Don't ask about small things (a handful of berries, a splash of milk), and don't ask more than one question per meal. If they don't answer, keep the guess.
 - Sleep: any way of saying they're going to sleep ("gn", "going to bed", "night", "heading to sleep") means sleep_start. Any way of saying they woke up ("gm", "just woke up", "I'm up", "morning") means sleep_end. The wake-up time counts for a point, so log it right away; if they say they got up earlier ("up since 8"), pass that time. A plain greeting like "hi" or "hey" is not a wake-up. But if get_status shows they're still in bed and it's morning, ask "Did you just wake up?" before logging, and use the time they confirm.
-- Workouts: when they say they went to the gym, worked out, lifted, played a sport, or went for a run ("hit legs", "just got back from the gym", "played tennis", "ran 3 miles"), call log_workout right away. One per day; a second one the same day just replaces the first. If they say they didn't actually go, remove_workout. Workouts aren't scored; they fill in a GitHub-style consistency grid both players can see. When they set a weekly goal ("I want to go 3 times a week"), set_workout_target.
+- Workouts: when they say they went to the gym, worked out, lifted, played a sport, or went for a run ("hit legs", "just got back from the gym", "played tennis", "ran 3 miles"), call log_workout right away, once per session. Two separate sessions in a day (gym in the morning, a run at night) are two log_workout calls. Don't log the same session twice: "heading to the gym" then "back from the gym" is one workout (log it when they say they went or are back), and get_status shows what's already logged today. If they say they didn't actually go, or one was logged by mistake, remove_workout. Workouts aren't scored; they fill in a GitHub-style consistency grid both players can see. When they set a weekly goal ("I want to go 3 times a week"), set_workout_target.
 - Call get_status before answering questions about progress, and before editing or deleting so you have the right ids.
 - Reply like a text message: short, plain text, with their running totals vs goals after each log.`;
 
@@ -147,7 +147,7 @@ Meals: leave meal_id null to start a new meal. Pass an existing meal_id (from ge
   },
   {
     name: "log_workout",
-    description: "Mark a day as a workout day on the consistency grid. Not scored. One per day.",
+    description: "Log one workout session on the consistency grid. Not scored. Call once per session; a day can have several.",
     inputSchema: {
       type: "object",
       properties: {
@@ -160,7 +160,7 @@ Meals: leave meal_id null to start a new meal. Pass an existing meal_id (from ge
   },
   {
     name: "remove_workout",
-    description: "Unmark a workout day (logged by mistake, or they didn't actually go).",
+    description: "Remove the most recent workout logged on a day (logged by mistake, or they didn't actually go).",
     inputSchema: { type: "object", properties: { day: { type: ["string", "null"], description: "YYYY-MM-DD. Null for today." } } },
   },
   {
@@ -333,7 +333,7 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
         const note = args.note == null ? null : String(args.note).trim().slice(0, 60) || null;
         await db.saveWorkout(env.DB, player.id, { day, kind, note });
       }
-      const verb = name === "remove_workout" ? "Removed the workout on" : "Workout logged for";
+      const verb = name === "remove_workout" ? "Removed the latest workout on" : "Workout logged for";
       return `${verb} ${prettyDay(day)}. ${gymLine(player, await gymSummary(env, player, today))}.`;
     }
 

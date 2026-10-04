@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { weekCount, weekStreak } from "../src/gym";
+import { countByDay, weekCount, weekStreak } from "../src/gym";
 
 // Weeks run Monday to Sunday. 2026-10-05 is a Monday.
-const days = (...d: string[]) => new Set(d);
+const days = (...d: string[]) => countByDay(d);
 
 describe("weekCount", () => {
   it("counts workouts in the Monday-to-Sunday week", () => {
     expect(weekCount(days("2026-10-04", "2026-10-05", "2026-10-11", "2026-10-12"), "2026-10-08")).toBe(2);
+  });
+});
+
+describe("two workouts in a day", () => {
+  it("count as two toward the week", () => {
+    expect(weekCount(days("2026-10-06", "2026-10-06"), "2026-10-06")).toBe(2);
+    expect(weekStreak(days("2026-10-06", "2026-10-06"), 2, "2026-10-03", "2026-10-07")).toBe(1);
   });
 });
 

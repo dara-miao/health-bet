@@ -10,11 +10,20 @@ export interface Workout {
   note: string | null;
 }
 
-/** Workouts in the Monday-to-Sunday week containing `day`. */
-export function weekCount(days: Set<string>, day: string): number {
+/** Workouts per day. A day can have more than one. */
+export type DayCounts = Map<string, number>;
+
+export function countByDay(days: string[]): DayCounts {
+  const counts: DayCounts = new Map();
+  for (const d of days) counts.set(d, (counts.get(d) ?? 0) + 1);
+  return counts;
+}
+
+/** Workouts in the Monday-to-Sunday week containing `day` (two in one day count as two). */
+export function weekCount(days: DayCounts, day: string): number {
   const start = weekStart(day);
   let n = 0;
-  for (let i = 0; i < 7; i++) if (days.has(addDays(start, i))) n++;
+  for (let i = 0; i < 7; i++) n += days.get(addDays(start, i)) ?? 0;
   return n;
 }
 
@@ -23,7 +32,7 @@ export function weekCount(days: Set<string>, day: string): number {
  * otherwise with last week (the current week is still in progress, so it can't break a streak).
  * Weeks before the week of `from` don't count.
  */
-export function weekStreak(days: Set<string>, target: number | null, from: string, today: string): number {
+export function weekStreak(days: DayCounts, target: number | null, from: string, today: string): number {
   if (!target) return 0;
   const first = weekStart(from);
   let week = weekStart(today);

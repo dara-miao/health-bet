@@ -1,7 +1,7 @@
 import * as db from "./db";
 import type { Env, MealWithItems, Player } from "./db";
 import { EMPTY_DAY, calorieGoalMet, proteinGoalMet, scoreDay, sleepGoalMet, wakeMinutes, wakeTarget, weekLoser, type DayStats } from "./scoring";
-import { weekCount, weekStreak, type Workout } from "./gym";
+import { countByDay, weekCount, weekStreak, type Workout } from "./gym";
 import { addDays, gameDay, localParts, prettyClock, prettyDay, prettyDuration, prettyTime, weekDays, weekStart } from "./time";
 
 const MAX_SLEEP_MINUTES = 16 * 60;
@@ -234,6 +234,7 @@ export async function statusReport(env: Env, player: Player, now: Date, offset: 
 }
 
 export interface GymSummary {
+  today: string;
   workouts: Workout[];
   thisWeek: number;
   streak: number;
@@ -244,8 +245,9 @@ export interface GymSummary {
 export async function gymSummary(env: Env, player: Player, today: string): Promise<GymSummary> {
   const from = (await betStart(env)) ?? "0000-00-00";
   const workouts = await db.workoutsForPlayer(env.DB, player.id, from);
-  const days = new Set(workouts.map((w) => w.day));
+  const days = countByDay(workouts.map((w) => w.day));
   return {
+    today,
     workouts,
     thisWeek: weekCount(days, today),
     streak: weekStreak(days, player.workout_target, from === "0000-00-00" ? (workouts[0]?.day ?? today) : from, today),
@@ -256,7 +258,9 @@ export async function gymSummary(env: Env, player: Player, today: string): Promi
 export function gymLine(p: Player, g: GymSummary): string {
   const target = p.workout_target ? ` / ${p.workout_target} target` : " (no weekly target set)";
   const streak = p.workout_target ? `, streak ${g.streak} week${g.streak === 1 ? "" : "s"}` : "";
-  return `🏋️ ${g.thisWeek} workout${g.thisWeek === 1 ? "" : "s"} this week${target}${streak}, ${g.total} total`;
+  const today = g.workouts.filter((w) => w.day === g.today);
+  const logged = today.length ? `; today: ${today.map((w) => `${w.kind}${w.note ? ` (${w.note})` : ""}`).join(", ")}` : "; none logged today";
+  return `🏋️ ${g.thisWeek} workout${g.thisWeek === 1 ? "" : "s"} this week${target}${streak}, ${g.total} total${logged}`;
 }
 
 /** Short version for the end of tool results. */
