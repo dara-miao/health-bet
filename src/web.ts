@@ -209,12 +209,21 @@ td.p4 { color: var(--ink); font-weight: 800; text-decoration: underline; text-de
 .gym-grid .c { margin: 0; border-radius: 3px; background: var(--raise); padding: 0; border: 0; cursor: pointer; }
 .gym-grid .c.on1 { background: color-mix(in srgb, var(--gc) 55%, transparent); }
 .gym-grid .c.on2 { background: var(--gc); }
-.gym-key { display: inline-flex; align-items: center; gap: 4px; }
+.gym-key { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.gym-key span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .gym-key i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; background: var(--raise); }
 .gym-grid .c.future { background: transparent; box-shadow: inset 0 0 0 1px var(--grid); cursor: default; }
 .gym-grid button.c:hover { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
 .gym-grid .c.today { outline: 1.5px solid var(--ink-2); outline-offset: 1px; }
 .gym-grid .c:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.gym-wk .c { display: inline-block; width: 18px; height: 18px; margin: 0; padding: 0; border: 0; border-radius: 5px; background: var(--raise); cursor: pointer; vertical-align: middle; }
+.gym-wk .c.on1 { background: color-mix(in srgb, var(--gc) 55%, transparent); }
+.gym-wk .c.on2 { background: var(--gc); }
+.gym-wk .c.future { background: transparent; box-shadow: inset 0 0 0 1px var(--grid); }
+.gym-wk .c.today { outline: 1.5px solid var(--ink-2); outline-offset: 2px; }
+.gym-wk .c:hover { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
+.gym-wk td.n small { font-size: 12px; color: var(--muted); font-weight: 600; }
+.streak { font-size: 12px; color: var(--muted); font-weight: 600; }
 .gym-tip { font-size: 12px; color: var(--ink-2); min-height: 16px; margin: 6px 2px 0; }
 .rules { color: var(--muted); font-size: 12px; margin: 10px 2px 0; }
 .meal { padding: 12px 2px; border-bottom: 1px solid var(--grid); }
@@ -648,7 +657,7 @@ export async function boardPage(env: Env, now: Date): Promise<Response> {
     <h2>Today</h2><div class="players">${cards}</div>
     <h2>This week</h2><div class="card table-wrap"><table class="wk"><thead><tr><th>Player</th>${dayHeads}<th class="n">Total</th></tr></thead><tbody>${weekRows}</tbody></table>
       <p class="rules">1 point each for calories, protein, ${prettyDuration(r.sleepTargetMinutes)}+ sleep, and being up by ${prettyClock(r.wakeWeekday)} (weekends ${prettyClock(r.wakeWeekend)}, ${r.wakeGraceMinutes} min grace). Lowest weekly total loses.</p></div>
-    <h2>Gym</h2>${await gymCard(env, players, today)}
+    <h2>Gym this week</h2>${await gymWeekCard(env, players, board.days, today)}
     <h2>Shared meals today</h2><div class="card">${sharedHtml || '<p class="muted" style="margin:0">Nobody has shared a meal today. Meals are private until you share one from your page or tell Poke "share my lunch".</p>'}</div>
     ${sharedYesterday ? `<h2>Shared yesterday</h2><div class="card">${sharedYesterday}</div>` : ""}
     <p class="rules">Shared here: points, calorie and protein totals, sleep, wake-up times, and meals you choose to share. Fat, carbs, weight, and unshared meals stay on each player's private page.</p>`,
@@ -703,12 +712,39 @@ function gymRow(p: Player, i: number, g: GymSummary, from: string, today: string
     <div class="gym-scroll"><div class="gym-grid">${cells.join("")}</div></div></div>`;
 }
 
+const GYM_KEY = `<p class="rules gym-key"><span><i></i> rest</span><span><i style="background:color-mix(in srgb, var(--ink-2) 45%, transparent)"></i> 1 workout</span><span><i style="background:var(--ink-2)"></i> 2+ in a day</span></p>`;
+
+/** This week's workouts, laid out like the points table: a row per player, a square per day. */
+async function gymWeekCard(env: Env, players: Player[], days: string[], today: string): Promise<string> {
+  const summaries = await Promise.all(players.map((p) => gymSummary(env, p, today)));
+  const heads = days.map((d) => `<th class="n" title="${prettyDay(d)}">${prettyDay(d).slice(0, 2)}</th>`).join("");
+  const rows = players
+    .map((p, i) => {
+      const g = summaries[i];
+      const cells = days
+        .map((day) => {
+          const list = g.workouts.filter((w) => w.day === day);
+          const text = `${prettyDay(day)}: ${list.length ? `${list.length > 1 ? `${list.length} workouts, ` : ""}${list.map((x) => `${KIND_LABEL[x.kind]}${x.note ? ` (${x.note})` : ""}`).join(" + ")}` : day > today ? "coming up" : "rest day"}`;
+          const cls = ["c", day > today ? "future" : list.length >= 2 ? "on2" : list.length ? "on1" : "", day === today ? "today" : ""].filter(Boolean).join(" ");
+          return `<td class="n"><button type="button" class="${cls}" aria-label="${esc(text)}" title="${esc(text)}" data-tip="${esc(text)}"></button></td>`;
+        })
+        .join("");
+      const total = `${g.thisWeek}${p.workout_target ? `<small>/${p.workout_target}</small>` : ""}`;
+      return `<tr style="--gc:${seriesVar(i)}"><td><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}${g.streak ? ` <span class="streak">🔥${g.streak}</span>` : ""}</td>${cells}<td class="n"><strong>${total}</strong></td></tr>`;
+    })
+    .join("");
+  return `<div class="card table-wrap gym"><table class="wk gym-wk"><thead><tr><th>Player</th>${heads}<th class="n">Total</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="gym-tip" aria-live="polite">Tap a square to see the day.</p>
+    ${GYM_KEY}
+    <p class="rules">🔥 = weeks in a row at your goal. Not scored, just consistency. Text your agent "hit the gym", "played tennis", or "went for a run", and set a goal with "I want to work out 3 times a week". The full grid is on <a href="/history">History</a>.</p></div>`;
+}
+
 async function gymCard(env: Env, players: Player[], today: string): Promise<string> {
   const from = (await betStart(env)) ?? today;
   const summaries = await Promise.all(players.map((p) => gymSummary(env, p, today)));
   return `<div class="card gym">${players.map((p, i) => gymRow(p, i, summaries[i], from, today)).join("")}
     <p class="gym-tip" aria-live="polite">Tap a square to see the day.</p>
-    <p class="rules gym-key">Rest <i></i><i style="background:color-mix(in srgb, var(--ink-2) 45%, transparent)"></i> 1 workout <i style="background:var(--ink-2)"></i> 2+ in a day</p>
+    ${GYM_KEY}
     <p class="rules">Not scored, just consistency. Text your agent "hit the gym", "played tennis", or "went for a run". Set a weekly goal with "I want to work out 3 times a week"; your streak counts the weeks you hit it.</p></div>`;
 }
 
@@ -760,8 +796,9 @@ export async function historyPage(env: Env, now: Date, rangeDays: number): Promi
     <h2>Weekly results</h2>
     <div class="card table-wrap"><table><thead><tr><th>Week of</th>${players.map((p, i) => `<th class="n"><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</th>`).join("")}<th>Result</th></tr></thead>
     <tbody>${weekRows}</tbody></table></div>
+    <h2>Gym consistency</h2>${await gymCard(env, players, today)}
     ${sections.map((x) => x.html).join("") || '<p class="muted">No players yet.</p>'}`,
-    `<script type="application/json" id="chart-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
+    `${GYM_JS}<script type="application/json" id="chart-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
     <script>${CHART_JS}</script>`,
   );
 }

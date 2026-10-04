@@ -58,7 +58,7 @@ Each day, each player can earn up to **4 points**:
 | ⏰ Wake-up | up by 8:30 weekdays, 10:30 weekends (10 min grace) | same |
 
 - Fat and carbs are tracked and shown but not scored.
-- **Gym consistency is tracked on the side, not scored:** a GitHub-style grid of workout days (gym, sport, or run) for each player, darker on days with two or more, with a streak of weeks that hit their own weekly goal.
+- **Gym consistency is tracked on the side, not scored:** this week's workout days (gym, sport, or run) on the scoreboard, a GitHub-style grid of every week on the history page, darker on days with two or more, and a streak of weeks that hit each player's own weekly goal.
 - Logging nothing doesn't count as a perfect cut day.
 - Weeks run Monday to Sunday. The lowest total loses. Ties go to whoever slept more.
 - Days roll over at **4am**, so a 1am snack counts for the night before. Sleep counts toward the day you wake up.
