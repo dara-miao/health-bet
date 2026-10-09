@@ -838,7 +838,7 @@ const daysFrom = (from: string, to: string) => Array.from({ length: dayCount(fro
 const GOALS = [
   { key: "calOk", icon: "🔥", name: "Calories" },
   { key: "proteinOk", icon: "💪", name: "Protein" },
-  { key: "sleepOk", icon: "😴", name: "Sleep" },
+  { key: "sleepOk", icon: "💤", name: "Sleep" },
   { key: "wakeOk", icon: "⏰", name: "On time" },
 ] as const;
 
@@ -897,7 +897,7 @@ function dayByDay(env: Env, series: Series[], days: string[], today: string, ful
     ? `<div class="dhead"><span></span>${series.map(({ p, i }) => `<span><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</span>`).join("")}</div>`
     : "";
   return `<div class="card days${series.length > 1 ? "" : " one"}">${head}${rows}
-    <p class="rules">🔥 calories · 💪 protein · 😴 ${prettyDuration(r.sleepTargetMinutes).replace(" 00m", "")}+ sleep · ⏰ up on time. Faded means missed. Tap a day for the numbers.</p></div>`;
+    <p class="rules">🔥 calories · 💪 protein · 💤 ${prettyDuration(r.sleepTargetMinutes).replace(" 00m", "")}+ sleep · ⏰ up on time. Faded means missed. Tap a day for the numbers.</p></div>`;
 }
 
 // Wake-up dots plot (WAKE_SPAN - minutes after midnight), so 5am sits at the top and 1pm at the bottom.
@@ -994,7 +994,7 @@ function trends(env: Env, series: Series[], days: string[], today: string, full:
         ]
       : []),
     {
-      title: "😴 Sleep",
+      title: "💤 Sleep",
       same: true,
       goal: () => `${prettyDuration(r.sleepTargetMinutes).replace(" 00m", "")}+`,
       chart: (x) => barChart(bars(x, (s) => (s.sleepMinutes == null ? null : s.sleepMinutes / 60), (s) => (s.sleepMinutes ?? 0) >= r.sleepTargetMinutes, (s) => prettyDuration(s.sleepMinutes!)), seriesVar(x.i), () => r.sleepTargetMinutes / 60, { h }),

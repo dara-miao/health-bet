@@ -111,8 +111,8 @@ export function statusLines(env: Env, p: Player, s: DayStats, day: string, opts:
   if (!shared) lines.push(`🥑 ${fat} · 🍞 ${carbs}`);
   lines.push(
     s.sleepMinutes != null
-      ? `😴 ${prettyDuration(s.sleepMinutes)} sleep ${sleepGoalMet(s, r) ? "✅" : "❌"}`
-      : "😴 no sleep logged",
+      ? `💤 ${prettyDuration(s.sleepMinutes)} sleep ${sleepGoalMet(s, r) ? "✅" : "❌"}`
+      : "💤 no sleep logged",
   );
   lines.push(wakeLine(env, day, s.wakeAt));
   return lines;
