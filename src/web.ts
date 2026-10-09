@@ -2,7 +2,7 @@
 // small inline script from JSON embedded in the page.
 import * as db from "./db";
 import type { Env, Player } from "./db";
-import { betStart, dayStats, gymSummary, mealTotals, weekBoard, type GymSummary } from "./game";
+import { betStart, dayStats, gymSummary, mealTotals, weekBoard, weekWinner, type GymSummary } from "./game";
 import { EMPTY_DAY, calorieGoalMet, proteinGoalMet, scoreDay, wakeGoalMet, wakeMinutes, wakeTarget, type DayStats } from "./scoring";
 import type { Workout } from "./gym";
 import { addDays, gameDay, prettyClock, prettyDay, prettyDuration, prettyTime, weekDays, weekStart } from "./time";
@@ -532,7 +532,7 @@ export function joinPage(error = "", name = ""): Response {
   return layout(
     "Join",
     `<header class="onboard">${MARK}<h1 class="title">Join the bet</h1>
-      <p class="lede">Food, sleep, and wake-up.<br>Lowest per week loses.</p></header>
+      <p class="lede">Food, sleep, and wake-up.<br>Highest score each week wins.</p></header>
     <form method="post" class="card form">
       ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ""}
       <label for="code">Join code</label><input id="code" name="code" required autocomplete="off" autocapitalize="off" placeholder="From whoever set this up">
@@ -685,8 +685,9 @@ export async function boardPage(env: Env, now: Date): Promise<Response> {
   let verdict = "";
   if (board.rows.length >= 2) {
     const tied = board.rows.every((row) => row.points === board.rows[0].points);
-    verdict = board.loser
-      ? `<strong>${esc(board.loser.name)}</strong> is losing right now${tied ? " (tied on points, behind on total sleep)" : ""}.`
+    const winner = weekWinner(board);
+    verdict = winner
+      ? `<strong>${esc(winner.name)}</strong> is winning right now${tied ? " (tied on points, ahead on total sleep)" : ""}.`
       : "Dead even right now.";
   }
   const banner = `<div class="banner">${verdict} ${punishment ? `Loser's punishment: <strong>${esc(punishment)}</strong>` : `<span class="muted">No punishment set yet. Text your agent "set the punishment to ..."</span>`}</div>`;
@@ -822,7 +823,8 @@ export async function historyPage(env: Env, now: Date, range: string | null): Pr
   const weekRows = boards
     .map((b) => {
       const live = b.start === weekStart(today);
-      const result = b.rows.length < 2 ? "" : b.loser ? `${esc(b.loser.name)} ${live ? "losing" : "lost"}` : "Draw";
+      const winner = weekWinner(b);
+      const result = b.rows.length < 2 ? "" : winner ? `${live ? "" : "🏆 "}${esc(winner.name)} ${live ? "winning" : "won"}` : "Draw";
       return `<tr><td>${prettyDay(b.start).slice(4)}${live ? ' <span class="muted">· now</span>' : ""}</td>
         ${b.rows.map((row) => `<td class="n"><strong>${row.points}</strong></td>`).join("")}<td>${result}</td></tr>`;
     })
@@ -1153,7 +1155,7 @@ export function lockedPage(next: string, error = ""): Response {
   return layout(
     "Health Bet",
     `<header class="onboard">${MARK}<h1 class="title wordmark">Health Bet</h1>
-      <p class="lede">Food, sleep, and wake-up.<br>Lowest per week loses.</p></header>
+      <p class="lede">Food, sleep, and wake-up.<br>Highest score each week wins.</p></header>
     <form method="post" action="/unlock" class="card form">
       ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ""}
       <input type="hidden" name="next" value="${esc(next)}">

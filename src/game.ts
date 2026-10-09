@@ -293,13 +293,22 @@ export async function dayRecap(env: Env, day: string): Promise<string> {
   return lines.join("\n");
 }
 
+/** Whoever's ahead: the best score among everyone but the loser (more sleep breaks a tie). Null on a draw. */
+export function weekWinner(board: Board): Player | null {
+  if (!board.loser) return null;
+  const rest = board.rows.filter((row) => row.player.id !== board.loser!.id);
+  rest.sort((a, b) => b.points - a.points || b.sleepMinutes - a.sleepMinutes);
+  return rest[0]?.player ?? null;
+}
+
 export async function weekVerdict(env: Env, start: string): Promise<string> {
   const board = await weekBoard(env, start, addDays(start, 6));
   const lines = [`🏁 Final for the week of ${prettyDay(start)}`, ...formatBoard(board), ""];
   if (board.loser) {
-    lines.push(`💀 ${board.loser.name} loses this week.`);
+    const winner = weekWinner(board);
+    lines.push(`🏆 ${winner ? winner.name : "Everyone else"} wins this week!`);
     const punishment = await db.getSetting(env.DB, "punishment");
-    lines.push(punishment ? `Punishment: ${punishment}` : "No punishment was set.");
+    lines.push(punishment ? `${board.loser.name} owes the punishment: ${punishment}` : "No punishment was set.");
   } else {
     lines.push("🤝 It's a draw. Nobody gets punished.");
   }
