@@ -940,14 +940,21 @@ type Bar = { day: string; value: number | null; hit: boolean; tip: string };
  * Daily bars: solid when the goal was hit, faded when missed, with the goal as a dashed line.
  * `target` can vary by day (the wake-up deadline is later on weekends).
  */
-type GoalDir = { dir: "max" | "min" | "about"; label: string };
+type GoalDir = { dir: "max" | "min" | "about" | "range"; label: string; lo?: number };
 
 /**
  * Which side of the goal line is good: a faint band on that side, and the goal written on the line
  * ("≤ 1,700" for a max, "≥ 120g" for a min), so a max line can't be mistaken for a min.
  */
-function goalMarks(W: number, H: number, yLine: number, goal: GoalDir | undefined): { zone: string; label: string } {
+function goalMarks(W: number, H: number, yLine: number, goal: GoalDir | undefined, yLo?: number): { zone: string; label: string } {
   if (!goal) return { zone: "", label: "" };
+  if (goal.dir === "range" && yLo != null) {
+    // Cut calories: between the floor and the max, with the floor drawn as a second line.
+    return {
+      zone: `<rect x="0" y="${yLine}" width="${W}" height="${Math.max(0, yLo - yLine)}" class="zone"/><line x1="0" x2="${W}" y1="${yLo}" y2="${yLo}" class="goal"/>`,
+      label: `<span class="glabel" style="top:${((yLine / H) * 100).toFixed(1)}%">${esc(goal.label)}</span>`,
+    };
+  }
   const zone =
     goal.dir === "max" ? `<rect x="0" y="${yLine}" width="${W}" height="${Math.max(0, H - yLine)}" class="zone"/>`
     : goal.dir === "min" ? `<rect x="0" y="0" width="${W}" height="${Math.max(0, yLine)}" class="zone"/>`
@@ -982,7 +989,7 @@ function barChart(bars: Bar[], color: string, target: (day: string) => number | 
   // The band and label only make sense when the goal is the same every day (not the wake-up deadline).
   const targets = new Set(bars.map((b) => target(b.day)));
   const t = targets.size === 1 ? [...targets][0] : null;
-  const g = t != null ? goalMarks(W, H, y(t), opts.goal) : { zone: "", label: "" };
+  const g = t != null ? goalMarks(W, H, y(t), opts.goal, opts.goal?.lo != null ? y(opts.goal.lo) : undefined) : { zone: "", label: "" };
   return `<div class="cbox"><svg viewBox="0 0 ${W} ${H}" class="bars" role="img">${g.zone}${marks}</svg>${g.label}</div>`;
 }
 
@@ -1051,8 +1058,14 @@ function trends(env: Env, series: Series[], days: string[], today: string, full:
   const metrics: Metric[] = [
     {
       title: "🔥 Calories",
-      goal: (p) => (p.calorie_target == null ? "no goal" : `${p.goal_type === "cut" ? "stay under" : "reach"} ${fmt(p.calorie_target)}`),
-      chart: (x) => barChart(bars(x, (s) => food(s, s.calories), (s, d) => scoreDay(x.p, s, r, d).calOk, (_, v) => `${fmt(v)} cal`), seriesVar(x.i), () => x.p.calorie_target, { h, goal: x.p.calorie_target == null ? undefined : { dir: x.p.goal_type === "cut" ? "max" : "min", label: fmt(x.p.calorie_target) } }),
+      goal: (p) => (p.calorie_target == null ? "no goal" : p.goal_type === "cut" ? `stay between ${fmt(r.cutFloorCalories)} and ${fmt(p.calorie_target)}` : `reach ${fmt(p.calorie_target)}`),
+      chart: (x) => barChart(bars(x, (s) => food(s, s.calories), (s, d) => scoreDay(x.p, s, r, d).calOk, (_, v) => `${fmt(v)} cal`), seriesVar(x.i), () => x.p.calorie_target, {
+            h,
+            goal:
+              x.p.calorie_target == null ? undefined
+              : x.p.goal_type === "cut" ? { dir: "range", lo: r.cutFloorCalories, label: `${fmt(r.cutFloorCalories)}–${fmt(x.p.calorie_target)}` }
+              : { dir: "min", label: fmt(x.p.calorie_target) },
+          }),
     },
     {
       title: "💪 Protein",
@@ -1112,7 +1125,7 @@ function trends(env: Env, series: Series[], days: string[], today: string, full:
     ? `<div class="card tcard tips"><h3>⚖️ Weight <span class="muted">· private</span></h3><div class="tcols n1"><div class="tcol"><div class="tlabel"><span class="muted">${series[0].p.goal_weight_lb != null ? `goal ${series[0].p.goal_weight_lb} lb` : "no goal weight"}</span></div>
         ${lineChart(days.map((d) => ({ day: d, value: weights.find((w) => w.day === d)?.lb ?? null })), seriesVar(series[0].i), series[0].p.goal_weight_lb)}${axis}</div></div><p class="tip-out" aria-live="polite"></p></div>`
     : "";
-  return `<div class="tgrid">${cards}${sugar}${weight}</div><p class="rules">Solid means the goal was hit, faded means missed. The dashed line is the goal, and the shaded side is where you want to be (≤ stay under, ≥ reach). On wake-up, higher is earlier. Tap a bar or dot for the number.</p>`;
+  return `<div class="tgrid">${cards}${sugar}${weight}</div><p class="rules">Solid means the goal was hit, faded means missed. The dashed line is the goal, and the shaded side is where you want to be (≤ stay under, ≥ reach, a range means stay between the two lines). On wake-up, higher is earlier. Tap a bar or dot for the number.</p>`;
 }
 
 /** Tap or hover anything with data-tip to show it in the nearest .tip-out line. */
