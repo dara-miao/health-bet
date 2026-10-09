@@ -296,6 +296,10 @@ form.inline .wk-line { flex-basis: 100%; }
 .tcols.n2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .tlabel { font-size: 12px; font-weight: 600; margin: 0 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 svg.bars { display: block; width: 100%; height: auto; overflow: visible; border-bottom: 1px solid var(--axis); }
+
+.cbox { position: relative; }
+svg.bars .zone { fill: var(--ink-2); opacity: 0.07; }
+.glabel { position: absolute; right: 0; transform: translateY(-115%); font-size: 11px; font-weight: 700; color: var(--ink-2); background: var(--solid); padding: 1px 6px; border-radius: 6px; pointer-events: none; white-space: nowrap; }
 svg.bars .goal { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 4 3; opacity: 0.7; vector-effect: non-scaling-stroke; }
 .xaxis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
 .tip-out { font-size: 12px; color: var(--ink-2); min-height: 16px; margin: 8px 2px 0; }
@@ -936,7 +940,23 @@ type Bar = { day: string; value: number | null; hit: boolean; tip: string };
  * Daily bars: solid when the goal was hit, faded when missed, with the goal as a dashed line.
  * `target` can vary by day (the wake-up deadline is later on weekends).
  */
-function barChart(bars: Bar[], color: string, target: (day: string) => number | null, opts: { dots?: boolean; h?: number } = {}): string {
+type GoalDir = { dir: "max" | "min" | "about"; label: string };
+
+/**
+ * Which side of the goal line is good: a faint band on that side, and the goal written on the line
+ * ("≤ 1,700" for a max, "≥ 120g" for a min), so a max line can't be mistaken for a min.
+ */
+function goalMarks(W: number, H: number, yLine: number, goal: GoalDir | undefined): { zone: string; label: string } {
+  if (!goal) return { zone: "", label: "" };
+  const zone =
+    goal.dir === "max" ? `<rect x="0" y="${yLine}" width="${W}" height="${Math.max(0, H - yLine)}" class="zone"/>`
+    : goal.dir === "min" ? `<rect x="0" y="0" width="${W}" height="${Math.max(0, yLine)}" class="zone"/>`
+    : "";
+  const sym = goal.dir === "max" ? "≤ " : goal.dir === "min" ? "≥ " : "~";
+  return { zone, label: `<span class="glabel" style="top:${((yLine / H) * 100).toFixed(1)}%">${sym}${esc(goal.label)}</span>` };
+}
+
+function barChart(bars: Bar[], color: string, target: (day: string) => number | null, opts: { dots?: boolean; h?: number; goal?: GoalDir } = {}): string {
   const W = 300, H = opts.h ?? 150, top = 8;
   const vals = bars.flatMap((b) => [b.value, target(b.day)]).filter((v): v is number => v != null);
   // Bars start at zero; dots zoom in on the range they use.
@@ -959,7 +979,11 @@ function barChart(bars: Bar[], color: string, target: (day: string) => number | 
       return `<g data-tip="${esc(b.tip)}">${goal}${bar}<rect x="${cx - step / 2}" y="0" width="${step}" height="${H}" fill="transparent"><title>${esc(b.tip)}</title></rect></g>`;
     })
     .join("");
-  return `<svg viewBox="0 0 ${W} ${H}" class="bars" role="img">${marks}</svg>`;
+  // The band and label only make sense when the goal is the same every day (not the wake-up deadline).
+  const targets = new Set(bars.map((b) => target(b.day)));
+  const t = targets.size === 1 ? [...targets][0] : null;
+  const g = t != null ? goalMarks(W, H, y(t), opts.goal) : { zone: "", label: "" };
+  return `<div class="cbox"><svg viewBox="0 0 ${W} ${H}" class="bars" role="img">${g.zone}${marks}</svg>${g.label}</div>`;
 }
 
 /** Sugar per day: added (solid) stacked under natural (faded), with the added-sugar limit dashed. Private. */
@@ -986,7 +1010,8 @@ function sugarCard(x: Series, days: string[], today: string, axis: string, H: nu
         <rect x="${cx - step / 2}" y="0" width="${step}" height="${H}" fill="transparent"><title>${esc(tip)}</title></rect></g>`;
     })
     .join("");
-  const svg = `<svg viewBox="0 0 ${W} ${H}" class="bars" role="img"><line x1="0" x2="${W}" y1="${y(limit)}" y2="${y(limit)}" class="goal"/>${marks}</svg>`;
+  const g = goalMarks(W, H, y(limit), { dir: "max", label: `${limit}g added` });
+  const svg = `<div class="cbox"><svg viewBox="0 0 ${W} ${H}" class="bars" role="img">${g.zone}<line x1="0" x2="${W}" y1="${y(limit)}" y2="${y(limit)}" class="goal"/>${marks}</svg>${g.label}</div>`;
   return `<div class="card tcard tips"><h3>🍬 Sugar <span class="muted">· private</span></h3><div class="tcols n1"><div class="tcol" style="--gc:${color}">
     <div class="tlabel"><span class="muted">solid = added, max ${limit}g · faded = natural</span></div>${svg}${axis}</div></div><p class="tip-out" aria-live="polite"></p></div>`;
 }
@@ -1026,26 +1051,26 @@ function trends(env: Env, series: Series[], days: string[], today: string, full:
   const metrics: Metric[] = [
     {
       title: "🔥 Calories",
-      goal: (p) => (p.calorie_target == null ? "no goal" : `${p.goal_type === "cut" ? "max" : "min"} ${fmt(p.calorie_target)}`),
-      chart: (x) => barChart(bars(x, (s) => food(s, s.calories), (s, d) => scoreDay(x.p, s, r, d).calOk, (_, v) => `${fmt(v)} cal`), seriesVar(x.i), () => x.p.calorie_target, { h }),
+      goal: (p) => (p.calorie_target == null ? "no goal" : `${p.goal_type === "cut" ? "stay under" : "reach"} ${fmt(p.calorie_target)}`),
+      chart: (x) => barChart(bars(x, (s) => food(s, s.calories), (s, d) => scoreDay(x.p, s, r, d).calOk, (_, v) => `${fmt(v)} cal`), seriesVar(x.i), () => x.p.calorie_target, { h, goal: x.p.calorie_target == null ? undefined : { dir: x.p.goal_type === "cut" ? "max" : "min", label: fmt(x.p.calorie_target) } }),
     },
     {
       title: "💪 Protein",
-      goal: (p) => (p.protein_target == null ? "no goal" : `min ${p.protein_target}g`),
-      chart: (x) => barChart(bars(x, (s) => food(s, s.protein), (s) => x.p.protein_target != null && s.protein >= x.p.protein_target, (_, v) => `${v}g protein`), seriesVar(x.i), () => x.p.protein_target, { h }),
+      goal: (p) => (p.protein_target == null ? "no goal" : `reach ${p.protein_target}g`),
+      chart: (x) => barChart(bars(x, (s) => food(s, s.protein), (s) => x.p.protein_target != null && s.protein >= x.p.protein_target, (_, v) => `${v}g protein`), seriesVar(x.i), () => x.p.protein_target, { h, goal: { dir: "min", label: `${x.p.protein_target}g` } }),
     },
     ...(full
       ? [
           {
             title: "🥑 Fat",
-            goal: (p: Player) => (p.fat_target == null ? "not scored" : `min ${p.fat_target}g · not scored`),
-            chart: (x: Series) => barChart(bars(x, (s) => food(s, s.fat), (s) => x.p.fat_target == null || s.fat >= x.p.fat_target, (_, v) => `${v}g fat`), seriesVar(x.i), () => x.p.fat_target, { h }),
+            goal: (p: Player) => (p.fat_target == null ? "not scored" : `reach ${p.fat_target}g · not scored`),
+            chart: (x: Series) => barChart(bars(x, (s) => food(s, s.fat), (s) => x.p.fat_target == null || s.fat >= x.p.fat_target, (_, v) => `${v}g fat`), seriesVar(x.i), () => x.p.fat_target, { h, goal: { dir: "min", label: `${x.p.fat_target}g` } }),
           },
           {
             title: "🍞 Carbs",
             goal: (p: Player) => (p.carb_target == null ? "not scored" : `about ${p.carb_target}g · not scored`),
             chart: (x: Series) =>
-              barChart(bars(x, (s) => food(s, s.carbs), (s) => x.p.carb_target == null || Math.abs(s.carbs - x.p.carb_target) <= x.p.carb_target * 0.15, (_, v) => `${v}g carbs`), seriesVar(x.i), () => x.p.carb_target, { h }),
+              barChart(bars(x, (s) => food(s, s.carbs), (s) => x.p.carb_target == null || Math.abs(s.carbs - x.p.carb_target) <= x.p.carb_target * 0.15, (_, v) => `${v}g carbs`), seriesVar(x.i), () => x.p.carb_target, { h, goal: { dir: "about", label: `${x.p.carb_target}g` } }),
           },
         ]
       : []),
@@ -1053,7 +1078,7 @@ function trends(env: Env, series: Series[], days: string[], today: string, full:
       title: "😴 Sleep",
       same: true,
       goal: () => `${prettyDuration(r.sleepTargetMinutes).replace(" 00m", "")}+`,
-      chart: (x) => barChart(bars(x, (s) => (s.sleepMinutes == null ? null : s.sleepMinutes / 60), (s) => (s.sleepMinutes ?? 0) >= r.sleepTargetMinutes, (s) => prettyDuration(s.sleepMinutes!)), seriesVar(x.i), () => r.sleepTargetMinutes / 60, { h }),
+      chart: (x) => barChart(bars(x, (s) => (s.sleepMinutes == null ? null : s.sleepMinutes / 60), (s) => (s.sleepMinutes ?? 0) >= r.sleepTargetMinutes, (s) => prettyDuration(s.sleepMinutes!)), seriesVar(x.i), () => r.sleepTargetMinutes / 60, { h, goal: { dir: "min", label: prettyDuration(r.sleepTargetMinutes).replace(" 00m", "") } }),
     },
     {
       title: "⏰ Wake-up",
@@ -1074,7 +1099,8 @@ function trends(env: Env, series: Series[], days: string[], today: string, full:
       const cols = series
         .map((x) => {
           const name = series.length > 1 ? `<span class="swatch" style="background:${seriesVar(x.i)}"></span>${esc(x.p.name)}` : "";
-          const goal = m.same ? "" : `<span class="muted">${name ? " · " : ""}${esc(m.goal(x.p))}</span>`;
+          // Side by side, the goal is already written on each chart's line, so just the name fits.
+          const goal = m.same || name ? "" : `<span class="muted">${esc(m.goal(x.p))}</span>`;
           return `<div class="tcol" style="--gc:${seriesVar(x.i)}">${name || goal ? `<div class="tlabel">${name}${goal}</div>` : ""}${m.chart(x)}${axis}</div>`;
         })
         .join("");
@@ -1086,7 +1112,7 @@ function trends(env: Env, series: Series[], days: string[], today: string, full:
     ? `<div class="card tcard tips"><h3>⚖️ Weight <span class="muted">· private</span></h3><div class="tcols n1"><div class="tcol"><div class="tlabel"><span class="muted">${series[0].p.goal_weight_lb != null ? `goal ${series[0].p.goal_weight_lb} lb` : "no goal weight"}</span></div>
         ${lineChart(days.map((d) => ({ day: d, value: weights.find((w) => w.day === d)?.lb ?? null })), seriesVar(series[0].i), series[0].p.goal_weight_lb)}${axis}</div></div><p class="tip-out" aria-live="polite"></p></div>`
     : "";
-  return `<div class="tgrid">${cards}${sugar}${weight}</div><p class="rules">Solid means the goal was hit, faded means missed; the dashed line is the goal. On wake-up, higher is earlier. Tap a bar or dot for the number.</p>`;
+  return `<div class="tgrid">${cards}${sugar}${weight}</div><p class="rules">Solid means the goal was hit, faded means missed. The dashed line is the goal, and the shaded side is where you want to be (≤ stay under, ≥ reach). On wake-up, higher is earlier. Tap a bar or dot for the number.</p>`;
 }
 
 /** Tap or hover anything with data-tip to show it in the nearest .tip-out line. */
