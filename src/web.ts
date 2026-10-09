@@ -824,7 +824,7 @@ export async function historyPage(env: Env, now: Date, range: string | null): Pr
     .map((b) => {
       const live = b.start === weekStart(today);
       const winner = weekWinner(b);
-      const result = b.rows.length < 2 ? "" : winner ? `${live ? "" : "🏆 "}${esc(winner.name)} ${live ? "winning" : "won"}` : "Draw";
+      const result = b.rows.length < 2 ? "" : winner ? `🏆 ${esc(winner.name)}${live ? ' <span class="muted">so far</span>' : ""}` : "Draw";
       return `<tr><td>${prettyDay(b.start).slice(4)}${live ? ' <span class="muted">· now</span>' : ""}</td>
         ${b.rows.map((row) => `<td class="n"><strong>${row.points}</strong></td>`).join("")}<td>${result}</td></tr>`;
     })
@@ -842,7 +842,7 @@ export async function historyPage(env: Env, now: Date, range: string | null): Pr
     `${nav("history")}
     <div class="date"><span>Since ${prettyDay(start)}</span><span>${total} day${total === 1 ? "" : "s"}</span></div>${chips}
     <h2>Weeks</h2>
-    <div class="card table-wrap"><table><thead><tr><th>Week of</th>${players.map((p, i) => `<th class="n"><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</th>`).join("")}<th>Result</th></tr></thead>
+    <div class="card table-wrap"><table><thead><tr><th>Week of</th>${players.map((p, i) => `<th class="n"><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</th>`).join("")}<th>Winner</th></tr></thead>
     <tbody>${weekRows}</tbody></table></div>
     <h2>Goals hit</h2>${hitRates(env, series, days, today)}
     <h2>Day by day</h2>${dayByDay(env, series, days, today, false)}
