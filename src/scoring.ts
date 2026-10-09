@@ -6,7 +6,8 @@
 //   +1 protein:  at or over protein_target
 //   +1 sleep:    slept at least the sleep target that night
 //   +1 wake-up:  woke up by the day's wake time (weekday or weekend) plus the grace period
-// Food points need at least one logged entry that day, so not logging isn't a free "cut" win.
+// Food points need at least one logged entry that day, so not logging isn't a free "cut" win,
+// and none of the day's entries can be a bare total ("I hit 3000 today") with no foods behind it.
 // Fat and carbs are tracked and shown but don't score.
 // Lowest weekly total loses; ties are broken by total sleep, then it's a draw.
 
@@ -38,6 +39,7 @@ export interface DayStats {
   sugar?: number | null; // total sugar, null if no item that day has an estimate
   addedSugar?: number | null;
   foodCount: number;
+  unitemized?: number; // entries that are a calorie number with no actual foods
   sleepMinutes: number | null;
   wakeAt: string | null; // ISO time they got up (the night's sleep ends on this day)
 }
@@ -53,15 +55,24 @@ export interface DayScore {
 }
 
 export function calorieGoalMet(goal: Goal, stats: DayStats, rules: Rules): boolean {
-  if (stats.foodCount === 0 || goal.goal_type == null || goal.calorie_target == null) return false;
+  if (stats.foodCount === 0 || stats.unitemized || goal.goal_type == null || goal.calorie_target == null) return false;
   return goal.goal_type === "cut"
     ? stats.calories <= goal.calorie_target && stats.calories >= rules.cutFloorCalories
     : stats.calories >= goal.calorie_target;
 }
 
 export function proteinGoalMet(goal: Goal, stats: DayStats): boolean {
-  if (stats.foodCount === 0 || goal.protein_target == null) return false;
+  if (stats.foodCount === 0 || stats.unitemized || goal.protein_target == null) return false;
   return stats.protein >= goal.protein_target;
+}
+
+/**
+ * A food entry that's really a total ("Daily calorie total (user reported 3,000)") rather than food:
+ * the description says so, or it's a big number with no fat or carbs, which no real food has.
+ */
+export function looksUnitemized(item: { description: string; calories: number; fat_g: number; carbs_g: number }): boolean {
+  if (/\b(total|totals|overall|self[- ]reported|user[- ]reported|reported|unspecified|not specified|not provided|macros unknown)\b/i.test(item.description) && item.calories >= 300) return true;
+  return item.calories >= 150 && item.fat_g === 0 && item.carbs_g === 0;
 }
 
 export function sleepGoalMet(stats: DayStats, rules: Rules): boolean {

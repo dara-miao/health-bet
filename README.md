@@ -61,6 +61,7 @@ Each day, each player can earn up to **4 points**:
 - **Sugar (opt-in, private):** the agent estimates total and added sugar for every item, so each player can track added (refined) vs natural sugar against their own daily limit. When one player turns it on, the other's agent offers it to them once.
 - **Gym consistency is tracked on the side, not scored:** this week's workout days (gym, sport, or run) on the scoreboard, a GitHub-style grid of every week on the history page, darker on days with two or more, and a streak of weeks that hit each player's own weekly goal.
 - Logging nothing doesn't count as a perfect cut day.
+- A bare total ("I hit 3,000 today") with no foods is saved but doesn't earn the calorie or protein point; the agent asks what was actually eaten.
 - Weeks run Monday to Sunday. The lowest total loses. Ties go to whoever slept more.
 - Days roll over at **4am**, so a 1am snack counts for the night before. Sleep counts toward the day you wake up.
 - Scoring starts on the bet's start day (`start_day` in the settings table), so days logged before both players joined don't count.

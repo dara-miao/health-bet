@@ -609,12 +609,13 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, to
       if (cut && s.calories > p.calorie_target) st = `<span class="bad">${fmt(gap)} over</span>`;
       else if (cut) st = ok ? `<span class="ok">On target</span> · ${fmt(gap)} left` : `${fmt(gap)} left`;
       else st = ok ? `<span class="ok">Hit</span>` : `${fmt(gap)} to go`;
+      if (s.unitemized) st = `<span class="bad">Total with no foods · not counted</span>`;
     }
     tiles.push(stat(`Calories · ${cut ? "max" : "min"} ${fmt(p.calorie_target)}`, fmt(s.calories), st));
   }
   if (p.protein_target != null) {
     const ok = proteinGoalMet(p, s);
-    tiles.push(stat(`Protein · min ${p.protein_target}g`, `${s.protein}<small>g</small>`, ok ? '<span class="ok">Hit</span>' : `${Math.max(0, p.protein_target - s.protein)}g to go`));
+    tiles.push(stat(`Protein · min ${p.protein_target}g`, `${s.protein}<small>g</small>`, s.unitemized ? '<span class="bad">Not counted</span>' : ok ? '<span class="ok">Hit</span>' : `${Math.max(0, p.protein_target - s.protein)}g to go`));
   }
   if (full) {
     const fatSt = p.fat_target == null ? "Not scored" : s.fat >= p.fat_target ? '<span class="ok">Hit</span> · not scored' : `${p.fat_target - s.fat}g low · not scored`;
@@ -887,7 +888,7 @@ function hitRates(env: Env, series: Series[], days: string[], today: string): st
 /** What one player did on a day, in words. `full` adds the private macros. */
 function dayDetail(env: Env, p: Player, s: DayStats, full: boolean): string {
   const parts = [
-    s.foodCount ? `${fmt(s.calories)} cal` : "no food logged",
+    s.foodCount ? `${fmt(s.calories)} cal${s.unitemized ? " (includes a total with no foods, not counted)" : ""}` : "no food logged",
     ...(s.foodCount ? [`${s.protein}g protein`] : []),
     ...(full && s.foodCount ? [`${s.fat}g fat`, `${s.carbs}g carbs`] : []),
     ...(full && p.sugar_target != null && s.sugar != null ? [`${s.sugar}g sugar (${s.addedSugar ?? 0}g added)`] : []),
@@ -1140,7 +1141,7 @@ function sugarPanel(p: Player, players: Player[], meToken: string): string {
   const trackers = players.filter((x) => x.id !== p.id && x.sugar_target != null).map((x) => esc(x.name));
   const offer = trackers.length && !p.sugar_offered;
   return `<h2 id="sugar">Sugar</h2><div class="card${offer ? " offer" : ""}">
-    <p style="margin:0 0 10px">${offer ? `<strong>New:</strong> ${trackers.join(" and ")} added sugar tracking. ` : ""}Track added (refined) vs natural sugar against a daily limit. Only you see it, and it isn't scored.</p>
+    <p style="margin:0 0 10px">${offer ? `<strong>New:</strong> ` : ""}Track added (refined) vs natural sugar against a daily limit. Only you see it, and it isn't scored.</p>
     <form method="post" action="${action}" class="inline"><span class="muted">Added sugar limit</span>${limit(25)}<span class="muted">g</span><button class="pill" type="submit">Turn on</button>
     ${offer ? `<button class="pill" type="submit" name="sugar" value="dismiss">No thanks</button>` : ""}</form>
     <p class="rules">25g is the American Heart Association's limit for women, 36g for men.</p></div>`;

@@ -18,6 +18,7 @@ Privacy: other players see only points, calorie and protein totals, sleep, and w
 - When they mention food they ate (or send a photo), estimate it and call log_food right away. Don't ask permission first.
 - Clarifying questions: if something they didn't specify would swing the estimate a lot (roughly 150+ calories or 15g+ protein: a portion of granola, nut butter, rice or pasta, a sauce or dressing, how it was cooked, which restaurant or brand), log your best guess first, then ask ONE short question with your assumption in it, e.g. "Logged the bowl assuming ⅓ cup granola. Was it more like ½ cup?" When they answer, fix that item with edit_food. Don't ask about small things (a handful of berries, a splash of milk), and don't ask more than one question per meal. If they don't answer, keep the guess.
 - Sleep: any way of saying they're going to sleep ("gn", "going to bed", "night", "heading to sleep") means sleep_start. Any way of saying they woke up ("gm", "just woke up", "I'm up", "morning") means sleep_end. The wake-up time counts for a point, so log it right away; if they say they got up earlier ("up since 8"), pass that time. A plain greeting like "hi" or "hey" is not a wake-up. But if get_status shows they're still in bed and it's morning, ask "Did you just wake up?" before logging, and use the time they confirm.
+- Log foods, not totals. If they only give a number ("I hit 3000 today"), ask what they ate. A calorie number with no foods is saved but doesn't earn the calorie or protein point.
 - Sugar: estimate sugar_g and added_sugar_g for every item, whether or not the player tracks sugar. Added sugar is sugar put in during processing or cooking (sweets, soda, sweetened coffee drinks, flavored yogurt, granola, sauces, honey, syrup); sugar inside whole fruit, plain milk and plain yogurt is natural. Sugar is private and not scored. When they ask to track it or change the limit ("track my sugar", "set my sugar limit to 21g"), call set_sugar_goal; to stop, call it with null.
 - Workouts: when they say they went to the gym, worked out, lifted, played a sport, or went for a run ("hit legs", "just got back from the gym", "played tennis", "ran 3 miles"), call log_workout right away, once per session. Two separate sessions in a day (gym in the morning, a run at night) are two log_workout calls. Don't log the same session twice: "heading to the gym" then "back from the gym" is one workout (log it when they say they went or are back), and get_status shows what's already logged today. If they say they didn't actually go, or one was logged by mistake, remove_workout. Workouts aren't scored; they fill in a GitHub-style consistency grid both players can see. When they set a weekly goal ("I want to go 3 times a week"), set_workout_target.
 - Call get_status before answering questions about progress, and before editing or deleting so you have the right ids.
@@ -288,6 +289,7 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
         `  Added: ${t.calories} cal, ${t.protein}g protein, ${t.fat}g fat, ${t.carbs}g carbs`,
         await totalsLine(env, player, day),
         missingSugar(player, added),
+        unitemizedNote(player, added),
       ].filter(Boolean).join("\n");
     }
 
@@ -299,6 +301,7 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
         `Updated item ${updated.id}: ${updated.description}: ${updated.calories} cal, ${updated.protein_g}g P, ${updated.fat_g}g F, ${updated.carbs_g}g C`,
         await totalsLine(env, player, updated.day),
         missingSugar(player, [updated]),
+        unitemizedNote(player, [updated]),
       ].filter(Boolean).join("\n");
     }
 
@@ -414,6 +417,13 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
 
 const TAG_HOW = `put it in the item's description as a tag, e.g. "1 cup vanilla Greek yogurt [sugar 16g, 9g added]": total sugar, then the added part (sweets, sweetened drinks, flavored yogurt, granola, sauces, honey, syrup). Sugar in whole fruit, plain milk and plain yogurt is natural, so "[sugar 14g, 0g added]" for a banana. The app reads the tag and removes it from the name`;
 
+/** A bare total is saved but doesn't earn points; ask for the actual foods. */
+function unitemizedNote(player: Player, saved: { id: number; unitemized: number }[]): string {
+  const ids = saved.filter((e) => e.unitemized).map((e) => e.id);
+  if (!ids.length) return "";
+  return `Not counted for points: item ${ids.join(", ")} is a total without the actual foods. Rule: a calorie number with no foods doesn't earn the calorie or protein point. Tell ${player.name}, ask what they actually ate, log those foods with log_food, then delete_food item ${ids.join(", ")}.`;
+}
+
 /** If a sugar tracker's items came in without sugar, ask the agent to re-save them with the tag. */
 function missingSugar(player: Player, saved: { id: number; sugar_g: number | null }[]): string {
   if (player.sugar_target == null) return "";
@@ -440,7 +450,7 @@ async function agentNotes(env: Env, player: Player, tool: string, origin: string
     if (trackers.length) {
       await db.markSugarOffered(env.DB, player.id);
       notes.push(
-        `New, tell ${player.name} once after answering: ${trackers.map((p) => p.name).join(" and ")} added sugar as a tracking category. It splits sugar into added (refined) vs natural, shows only on each person's own private page (nobody else sees it), and isn't scored. Ask if they want it on their page too; they can turn it on there: ${page}#sugar`,
+        `New, tell ${player.name} once after answering: sugar is now a tracking category. It splits sugar into added (refined) vs natural, shows only on each person's own private page (nobody else sees it), and isn't scored. Ask if they want it on their page too; they can turn it on there: ${page}#sugar`,
       );
     }
   }

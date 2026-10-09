@@ -91,3 +91,22 @@ describe("break days", () => {
     expect(wakeTarget("2026-11-26", r)).toBe(630);
   });
 });
+
+describe("bare totals", () => {
+  it("are recognized", async () => {
+    const { looksUnitemized } = await import("../src/scoring");
+    expect(looksUnitemized({ description: "Daily calorie and protein goal total (user reported hitting 3,000 cal and 155g+ protein; fat and carbs not provided)", calories: 3000, fat_g: 0, carbs_g: 0 })).toBe(true);
+    expect(looksUnitemized({ description: "Calories (user-provided total; foods/macros unspecified)", calories: 900, fat_g: 0, carbs_g: 0 })).toBe(true);
+    expect(looksUnitemized({ description: "1 Sweetgreen bowl, estimated", calories: 1200, fat_g: 62, carbs_g: 105 })).toBe(false);
+    expect(looksUnitemized({ description: "Creatine supplement", calories: 0, fat_g: 0, carbs_g: 0 })).toBe(false);
+    expect(looksUnitemized({ description: "1 cup egg whites", calories: 126, fat_g: 0, carbs_g: 2 })).toBe(false);
+  });
+  it("cost the calorie and protein points", async () => {
+    const { calorieGoalMet, proteinGoalMet } = await import("../src/scoring");
+    const mal = { goal_type: "bulk" as const, calorie_target: 3000, protein_target: 155 };
+    const s = { calories: 3000, protein: 155, fat: 0, carbs: 0, foodCount: 2, sleepMinutes: null, wakeAt: null };
+    const r = { tz: "America/Los_Angeles", sleepTargetMinutes: 420, cutFloorCalories: 1200, wakeWeekday: 510, wakeWeekend: 630, wakeGraceMinutes: 10 };
+    expect(calorieGoalMet(mal, s, r) && proteinGoalMet(mal, s)).toBe(true);
+    expect(calorieGoalMet(mal, { ...s, unitemized: 1 }, r) || proteinGoalMet(mal, { ...s, unitemized: 1 })).toBe(false);
+  });
+});
