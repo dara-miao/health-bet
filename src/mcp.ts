@@ -3,7 +3,7 @@
 // so every tool call already knows who is logging.
 import * as db from "./db";
 import type { Env, FoodItem, Player } from "./db";
-import { UserError, goToBed, goalLine, gymLine, gymSummary, logNight, mealTotals, statusReport, totalsLine, wakeUp } from "./game";
+import { UserError, dayStats, goToBed, goalLine, gymLine, gymSummary, logNight, mealTotals, statusReport, sugarLine, totalsLine, wakeUp } from "./game";
 import { WORKOUT_KINDS, type WorkoutKind } from "./gym";
 import { addDays, formatOffset, gameDay, parseTime, prettyDay, utcOffsetMinutes } from "./time";
 
@@ -18,6 +18,7 @@ Privacy: other players see only points, calorie and protein totals, sleep, and w
 - When they mention food they ate (or send a photo), estimate it and call log_food right away. Don't ask permission first.
 - Clarifying questions: if something they didn't specify would swing the estimate a lot (roughly 150+ calories or 15g+ protein: a portion of granola, nut butter, rice or pasta, a sauce or dressing, how it was cooked, which restaurant or brand), log your best guess first, then ask ONE short question with your assumption in it, e.g. "Logged the bowl assuming ⅓ cup granola. Was it more like ½ cup?" When they answer, fix that item with edit_food. Don't ask about small things (a handful of berries, a splash of milk), and don't ask more than one question per meal. If they don't answer, keep the guess.
 - Sleep: any way of saying they're going to sleep ("gn", "going to bed", "night", "heading to sleep") means sleep_start. Any way of saying they woke up ("gm", "just woke up", "I'm up", "morning") means sleep_end. The wake-up time counts for a point, so log it right away; if they say they got up earlier ("up since 8"), pass that time. A plain greeting like "hi" or "hey" is not a wake-up. But if get_status shows they're still in bed and it's morning, ask "Did you just wake up?" before logging, and use the time they confirm.
+- Sugar: estimate sugar_g and added_sugar_g for every item, whether or not the player tracks sugar. Added sugar is sugar put in during processing or cooking (sweets, soda, sweetened coffee drinks, flavored yogurt, granola, sauces, honey, syrup); sugar inside whole fruit, plain milk and plain yogurt is natural. Sugar is private and not scored. When they ask to track it or change the limit ("track my sugar", "set my sugar limit to 21g"), call set_sugar_goal; to stop, call it with null.
 - Workouts: when they say they went to the gym, worked out, lifted, played a sport, or went for a run ("hit legs", "just got back from the gym", "played tennis", "ran 3 miles"), call log_workout right away, once per session. Two separate sessions in a day (gym in the morning, a run at night) are two log_workout calls. Don't log the same session twice: "heading to the gym" then "back from the gym" is one workout (log it when they say they went or are back), and get_status shows what's already logged today. If they say they didn't actually go, or one was logged by mistake, remove_workout. Workouts aren't scored; they fill in a GitHub-style consistency grid both players can see. When they set a weekly goal ("I want to go 3 times a week"), set_workout_target.
 - Call get_status before answering questions about progress, and before editing or deleting so you have the right ids.
 - Reply like a text message: short, plain text, with their running totals vs goals after each log.`;
@@ -30,8 +31,13 @@ const ITEM_SCHEMA = {
     protein_g: { type: "number" },
     fat_g: { type: "number" },
     carbs_g: { type: "number" },
+    sugar_g: { type: "number", description: "Total sugar, natural plus added." },
+    added_sugar_g: {
+      type: "number",
+      description: "The part of sugar_g that's added (table sugar, syrups, honey, juice concentrate, sweets, sweetened drinks and sauces). Sugar naturally in whole fruit, plain milk and plain yogurt is not added. Use the label's 'Includes Xg Added Sugars' when known.",
+    },
   },
-  required: ["description", "calories", "protein_g", "fat_g", "carbs_g"],
+  required: ["description", "calories", "protein_g", "fat_g", "carbs_g", "sugar_g", "added_sugar_g"],
 };
 
 function tools() {
@@ -146,6 +152,15 @@ Meals: leave meal_id null to start a new meal. Pass an existing meal_id (from ge
     },
   },
   {
+    name: "set_sugar_goal",
+    description: "Turn on sugar tracking with a daily limit for added sugar (private, not scored), change the limit, or turn it off with null.",
+    inputSchema: {
+      type: "object",
+      properties: { added_max_g: { type: ["integer", "null"], minimum: 1, maximum: 200, description: "Max grams of added sugar a day; 25 is the American Heart Association's limit for women, 36 for men. Null turns tracking off." } },
+      required: ["added_max_g"],
+    },
+  },
+  {
     name: "log_workout",
     description: "Log one workout session on the consistency grid. Not scored. Call once per session; a day can have several.",
     inputSchema: {
@@ -205,7 +220,12 @@ function items(raw: unknown): FoodItem[] {
       throw new ToolError("Each item needs a description and non-negative calories, protein_g, fat_g, carbs_g.");
     }
     const [calories, protein_g, fat_g, carbs_g] = nums;
-    return { description: it.description.slice(0, 200), calories, protein_g, fat_g, carbs_g };
+    // Sugar is optional so an agent that hasn't picked up the new fields can still log.
+    const opt = (k: string) => {
+      const n = Number(it?.[k]);
+      return it?.[k] == null || !Number.isFinite(n) || n < 0 ? null : n;
+    };
+    return { description: it.description.slice(0, 200), calories, protein_g, fat_g, carbs_g, sugar_g: opt("sugar_g"), added_sugar_g: opt("added_sugar_g") };
   });
 }
 
@@ -337,6 +357,16 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
       return `${verb} ${prettyDay(day)}. ${gymLine(player, await gymSummary(env, player, today))}.`;
     }
 
+    case "set_sugar_goal": {
+      const raw = args.added_max_g;
+      const n = raw == null ? null : Math.round(Number(raw));
+      if (n != null && !(n >= 1 && n <= 200)) throw new ToolError("added_max_g must be 1 to 200 grams, or null to stop tracking.");
+      await db.setSugarTarget(env.DB, player.id, n);
+      if (n == null) return "Sugar tracking is off. Sugar estimates are still saved in case they turn it back on.";
+      const p = (await db.getPlayer(env.DB, player.id))!;
+      return `Sugar tracking on: added sugar at most ${n}g a day (private, not scored). It shows on their private page.\n${sugarLine(p, await dayStats(env, p.id, today))}`;
+    }
+
     case "set_workout_target": {
       const n = Math.round(Number(args.per_week));
       if (!(n >= 1 && n <= 7)) throw new ToolError("per_week must be 1 to 7.");
@@ -355,6 +385,19 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
     default:
       throw new ToolError(`Unknown tool ${name}.`);
   }
+}
+
+/**
+ * Once another player turns on sugar tracking, the next tool result for a player who hasn't decided
+ * asks their agent to offer it to them. Asked once.
+ */
+async function sugarOffer(env: Env, player: Player, tool: string): Promise<string> {
+  if (tool === "set_sugar_goal" || player.sugar_target != null || player.sugar_offered) return "";
+  const trackers = (await db.listPlayers(env.DB)).filter((p) => p.id !== player.id && p.sugar_target != null);
+  if (!trackers.length) return "";
+  await db.markSugarOffered(env.DB, player.id);
+  const who = trackers.map((p) => p.name).join(" and ");
+  return `\n\nNew (tell ${player.name} once, after answering): ${who} added sugar as a tracking category. It splits sugar into added (refined) vs natural, shows only on each person's own private page (nobody else sees it), and isn't scored. Ask if they want it on their page too. If yes, call set_sugar_goal (suggest 36g added sugar a day for men or 25g for women, the American Heart Association limits, unless they pick a number).`;
 }
 
 interface RpcRequest {
@@ -388,7 +431,7 @@ async function handleRpc(env: Env, player: Player, req: RpcRequest, origin: stri
       try {
         // Re-read the player so goals and pending bedtime are current.
         const fresh = (await db.getPlayer(env.DB, player.id))!;
-        const text = await callTool(env, fresh, name, args ?? {}, new Date(), origin);
+        const text = (await callTool(env, fresh, name, args ?? {}, new Date(), origin)) + (await sugarOffer(env, fresh, name));
         return reply({ content: [{ type: "text", text }] });
       } catch (err) {
         if (err instanceof UserError) {

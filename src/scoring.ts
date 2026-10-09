@@ -34,6 +34,8 @@ export interface DayStats {
   protein: number;
   fat: number;
   carbs: number;
+  sugar?: number | null; // total sugar, null if no item that day has an estimate
+  addedSugar?: number | null;
   foodCount: number;
   sleepMinutes: number | null;
   wakeAt: string | null; // ISO time they got up (the night's sleep ends on this day)

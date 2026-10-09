@@ -39,12 +39,14 @@ export interface Player {
   fat_target: number | null;
   carb_target: number | null;
   workout_target: number | null;
+  sugar_target: number | null;
+  sugar_offered: number;
   goal_weight_lb: number | null;
   pending_bed_at: string | null;
 }
 
 const PLAYER_COLS =
-  "id, name, poke_api_key, goal_type, calorie_target, protein_target, fat_target, carb_target, workout_target, goal_weight_lb, pending_bed_at";
+  "id, name, poke_api_key, goal_type, calorie_target, protein_target, fat_target, carb_target, workout_target, sugar_target, sugar_offered, goal_weight_lb, pending_bed_at";
 
 export interface FoodEntry {
   id: number;
@@ -55,9 +57,11 @@ export interface FoodEntry {
   protein_g: number;
   fat_g: number;
   carbs_g: number;
+  sugar_g: number | null;
+  added_sugar_g: number | null;
 }
 
-const FOOD_COLS = "id, meal_id, day, description, calories, protein_g, fat_g, carbs_g";
+const FOOD_COLS = "id, meal_id, day, description, calories, protein_g, fat_g, carbs_g, sugar_g, added_sugar_g";
 
 export interface FoodItem {
   description: string;
@@ -65,6 +69,8 @@ export interface FoodItem {
   protein_g: number;
   fat_g: number;
   carbs_g: number;
+  sugar_g: number | null;
+  added_sugar_g: number | null;
 }
 
 export interface Meal {
@@ -189,14 +195,21 @@ export async function setDayShared(db: D1Database, playerId: number, day: string
   return res.meta.changes;
 }
 
+/** Sugar is optional; added sugar can't be more than the total. */
+function sugarCols(it: FoodItem): (number | null)[] {
+  if (it.sugar_g == null) return [null, null];
+  const total = Math.round(it.sugar_g);
+  return [total, it.added_sugar_g == null ? null : Math.min(total, Math.round(it.added_sugar_g))];
+}
+
 export async function addFood(db: D1Database, playerId: number, mealId: number, day: string, items: FoodItem[]) {
   const stmt = db.prepare(
-    `INSERT INTO food_entries (meal_id, player_id, day, description, calories, protein_g, fat_g, carbs_g)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${FOOD_COLS}`,
+    `INSERT INTO food_entries (meal_id, player_id, day, description, calories, protein_g, fat_g, carbs_g, sugar_g, added_sugar_g)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${FOOD_COLS}`,
   );
   const results = await db.batch<FoodEntry>(
     items.map((it) =>
-      stmt.bind(mealId, playerId, day, it.description, ...[it.calories, it.protein_g, it.fat_g, it.carbs_g].map(Math.round)),
+      stmt.bind(mealId, playerId, day, it.description, ...[it.calories, it.protein_g, it.fat_g, it.carbs_g].map(Math.round), ...sugarCols(it)),
     ),
   );
   return results.map((r) => r.results[0]);
@@ -205,10 +218,10 @@ export async function addFood(db: D1Database, playerId: number, mealId: number, 
 export async function updateFood(db: D1Database, playerId: number, entryId: number, item: FoodItem) {
   return db
     .prepare(
-      `UPDATE food_entries SET description = ?, calories = ?, protein_g = ?, fat_g = ?, carbs_g = ?
+      `UPDATE food_entries SET description = ?, calories = ?, protein_g = ?, fat_g = ?, carbs_g = ?, sugar_g = ?, added_sugar_g = ?
        WHERE id = ? AND player_id = ? RETURNING ${FOOD_COLS}`,
     )
-    .bind(item.description, ...[item.calories, item.protein_g, item.fat_g, item.carbs_g].map(Math.round), entryId, playerId)
+    .bind(item.description, ...[item.calories, item.protein_g, item.fat_g, item.carbs_g].map(Math.round), ...sugarCols(item), entryId, playerId)
     .first<FoodEntry>();
 }
 
@@ -246,7 +259,7 @@ export async function statsForRange(
     db
       .prepare(
         `SELECT day, SUM(calories) AS calories, SUM(protein_g) AS protein, SUM(fat_g) AS fat, SUM(carbs_g) AS carbs,
-                COUNT(*) AS n
+                SUM(sugar_g) AS sugar, SUM(added_sugar_g) AS added_sugar, COUNT(*) AS n
          FROM food_entries WHERE player_id = ? AND day BETWEEN ? AND ? GROUP BY day`,
       )
       .bind(playerId, from, to),
@@ -258,7 +271,7 @@ export async function statsForRange(
     return out.get(day)!;
   };
   for (const r of food.results) {
-    Object.assign(get(r.day), { calories: r.calories, protein: r.protein, fat: r.fat, carbs: r.carbs, foodCount: r.n });
+    Object.assign(get(r.day), { calories: r.calories, protein: r.protein, fat: r.fat, carbs: r.carbs, sugar: r.sugar, addedSugar: r.added_sugar, foodCount: r.n });
   }
   for (const r of sleep.results) Object.assign(get(r.day), { sleepMinutes: r.minutes, wakeAt: r.wake_at });
   return out;
@@ -324,6 +337,14 @@ export async function workoutsForPlayer(db: D1Database, playerId: number, from: 
     .bind(playerId, from)
     .all<Workout>();
   return results;
+}
+
+export async function setSugarTarget(db: D1Database, id: number, maxAddedGrams: number | null) {
+  await db.prepare("UPDATE players SET sugar_target = ?, sugar_offered = 1 WHERE id = ?").bind(maxAddedGrams, id).run();
+}
+
+export async function markSugarOffered(db: D1Database, id: number) {
+  await db.prepare("UPDATE players SET sugar_offered = 1 WHERE id = ?").bind(id).run();
 }
 
 export async function setWorkoutTarget(db: D1Database, id: number, perWeek: number) {

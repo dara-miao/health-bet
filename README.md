@@ -58,6 +58,7 @@ Each day, each player can earn up to **4 points**:
 | ⏰ Wake-up | up by 8:30 weekdays, 10:30 weekends (10 min grace) | same |
 
 - Fat and carbs are tracked and shown but not scored.
+- **Sugar (opt-in, private):** the agent estimates total and added sugar for every item, so each player can track added (refined) vs natural sugar against their own daily limit. When one player turns it on, the other's agent offers it to them once.
 - **Gym consistency is tracked on the side, not scored:** this week's workout days (gym, sport, or run) on the scoreboard, a GitHub-style grid of every week on the history page, darker on days with two or more, and a streak of weeks that hit each player's own weekly goal.
 - Logging nothing doesn't count as a perfect cut day.
 - Weeks run Monday to Sunday. The lowest total loses. Ties go to whoever slept more.
@@ -76,6 +77,7 @@ Friendly competition, not surveillance. The other player sees only what the bet 
 | Workout days and streaks | ✓ | ✓ |
 | Meals | only ones you choose to share | ✓ all |
 | Fat and carbs | – | ✓ |
+| Sugar (added vs natural) | – | ✓ if you turn it on |
 | Weight | – | ✓ |
 
 This is enforced on the server. When your friend's agent asks for status, the response simply doesn't contain your private fields, so there's nothing for a model to leak. Meals are private by default and shared one at a time (or a whole day) from your page or by texting "share my dinner".
@@ -84,12 +86,13 @@ This is enforced on the server. When your friend's agent asks for status, the re
 
 | Tool | What it does |
 |---|---|
-| `log_food` | Log items with calories, protein, fat and carbs; add to an existing meal or backdate up to a week |
+| `log_food` | Log items with calories, protein, fat, carbs, and sugar (total and added); add to an existing meal or backdate up to a week |
 | `edit_food` / `delete_food` | Fix or remove a single item ("actually it was 3 eggs") |
 | `share_meal` | Share or unshare a meal, or a whole day, with the other player |
 | `sleep_start` / `sleep_end` | "gn" and "gm"; computes duration and the wake-up point |
 | `log_sleep` | A whole night after the fact ("slept 1 to 8") |
 | `get_status` | Current time, goals, today's meals with ids, the other player's shared stats, the week's standings |
+| `set_sugar_goal` | Turn on private sugar tracking with an added-sugar limit, change it, or turn it off |
 | `log_workout` / `remove_workout` / `set_workout_target` | Mark a gym, sport, or run day on the consistency grid, and set the weekly goal the streak counts |
 | `set_goal` / `log_weight` / `set_punishment` | Goals, private weigh-ins, and the stakes |
 

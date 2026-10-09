@@ -65,7 +65,11 @@ export function goalLine(p: Player, shared = false): string {
   const cmp = p.goal_type === "cut" ? "at most" : "at least";
   const extras = shared
     ? []
-    : [p.fat_target != null && `fat at least ${p.fat_target}g`, p.carb_target != null && `carbs about ${p.carb_target}g`].filter(Boolean);
+    : [
+        p.fat_target != null && `fat at least ${p.fat_target}g`,
+        p.carb_target != null && `carbs about ${p.carb_target}g`,
+        p.sugar_target != null && `added sugar at most ${p.sugar_target}g`,
+      ].filter(Boolean);
   const unscored = extras.length ? `, ${extras.join(", ")} (not scored)` : "";
   return `${p.goal_type}: ${cmp} ${p.calorie_target.toLocaleString()} cal, protein at least ${p.protein_target}g${unscored}`;
 }
@@ -109,6 +113,7 @@ export function statusLines(env: Env, p: Player, s: DayStats, day: string, opts:
   const fat = p.fat_target != null ? `${s.fat}g / ${p.fat_target}g fat${s.fat < p.fat_target ? " (low)" : ""}` : `${s.fat}g fat`;
   const carbs = p.carb_target != null ? `${s.carbs}g / ~${p.carb_target}g carbs` : `${s.carbs}g carbs`;
   if (!shared) lines.push(`🥑 ${fat} · 🍞 ${carbs}`);
+  if (!shared && p.sugar_target != null) lines.push(sugarLine(p, s));
   lines.push(
     s.sleepMinutes != null
       ? `😴 ${prettyDuration(s.sleepMinutes)} sleep ${sleepGoalMet(s, r) ? "✅" : "❌"}`
@@ -263,6 +268,14 @@ export function gymLine(p: Player, g: GymSummary): string {
   return `🏋️ ${g.thisWeek} workout${g.thisWeek === 1 ? "" : "s"} this week${target}${streak}, ${g.total} total${logged}`;
 }
 
+/** Private: total sugar and the added part against the player's limit. */
+export function sugarLine(p: Player, s: DayStats): string {
+  if (s.sugar == null) return `🍬 no sugar estimates yet today (added sugar max ${p.sugar_target}g)`;
+  const added = s.addedSugar ?? 0;
+  const over = p.sugar_target != null && added > p.sugar_target;
+  return `🍬 ${s.sugar}g sugar: ${added}g added / ${p.sugar_target}g max${over ? " (over)" : ""}, ${s.sugar - added}g natural`;
+}
+
 /** Short version for the end of tool results. */
 export async function totalsLine(env: Env, player: Player, day: string): Promise<string> {
   return `${player.name}'s totals for ${prettyDay(day)}: ${statusLines(env, player, await dayStats(env, player.id, day), day).join(" | ")}`;
@@ -300,6 +313,9 @@ export async function eveningNudge(env: Env, player: Player, day: string): Promi
   const lines = [`🌙 9pm check-in for ${player.name}`, ...statusLines(env, player, s, day)];
   if (player.fat_target != null && s.fat < player.fat_target) {
     lines.push(`Fat is low (${s.fat}g of ${player.fat_target}g). Nut butter, avocado, or olive oil would close it.`);
+  }
+  if (player.sugar_target != null && (s.addedSugar ?? 0) > player.sugar_target) {
+    lines.push(`Added sugar is over today (${s.addedSugar}g of ${player.sugar_target}g). Fruit or plain yogurt if you want something sweet; their sugar is natural.`);
   }
   if (player.carb_target != null && s.carbs < MIN_CARBS) {
     lines.push(`Carbs are low (${s.carbs}g; aim for about ${player.carb_target}g, and at least ${MIN_CARBS}g). Rice, oats, fruit, or potatoes would help.`);

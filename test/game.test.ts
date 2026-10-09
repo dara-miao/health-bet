@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { goalLine, statusLines, wakeLine } from "../src/game";
+import { goalLine, statusLines, sugarLine, wakeLine } from "../src/game";
 import type { Env, Player } from "../src/db";
 
 const env = {
@@ -8,7 +8,7 @@ const env = {
 } as Env;
 const dara: Player = {
   id: 1, name: "Dara", poke_api_key: null, goal_type: "cut", calorie_target: 1700, protein_target: 120,
-  fat_target: 45, carb_target: 170, workout_target: 2, goal_weight_lb: 120, pending_bed_at: null,
+  fat_target: 45, carb_target: 170, workout_target: 2, sugar_target: null, sugar_offered: 0, goal_weight_lb: 120, pending_bed_at: null,
 };
 const stats = (calories: number) => ({ calories, protein: 50, fat: 20, carbs: 100, foodCount: 2, sleepMinutes: null, wakeAt: null });
 
@@ -35,5 +35,19 @@ describe("wakeLine", () => {
     expect(wakeLine(env, "2026-09-30", "2026-09-30T15:22:00Z")).toBe("⏰ up at 8:22 AM ✅");
     expect(wakeLine(env, "2026-09-30", "2026-09-30T16:05:00Z")).toBe("⏰ up at 9:05 AM ❌ (35 min late; up by 8:30 AM, 10 min grace)");
     expect(wakeLine(env, "2026-10-03", null)).toBe("⏰ no wake-up logged (up by 10:30 AM, 10 min grace)");
+  });
+});
+
+describe("sugar", () => {
+  const tracking = { ...dara, sugar_target: 25 };
+  it("splits added and natural, and flags going over", () => {
+    expect(sugarLine(tracking, { ...stats(1500), sugar: 40, addedSugar: 30 })).toBe("🍬 40g sugar: 30g added / 25g max (over), 10g natural");
+  });
+  it("only shows for players who track it, and never to others", () => {
+    const s = { ...stats(1500), sugar: 20, addedSugar: 5 };
+    expect(statusLines(env, dara, s, "2026-09-30").join("\n")).not.toMatch(/sugar/);
+    expect(statusLines(env, tracking, s, "2026-09-30").join("\n")).toMatch(/5g added/);
+    expect(statusLines(env, tracking, s, "2026-09-30", { shared: true }).join("\n")).not.toMatch(/sugar/);
+    expect(goalLine(tracking, true)).not.toMatch(/sugar/);
   });
 });

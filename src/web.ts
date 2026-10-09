@@ -183,6 +183,8 @@ nav .links a[aria-current] { color: var(--ink); background: var(--raise); }
 .stat .v { font-size: 26px; line-height: 1.15; }
 .stat .v small { font-size: 13px; color: var(--muted); font-weight: 500; letter-spacing: 0; }
 .stat .s { font-size: 12px; font-weight: 600; color: var(--muted); }
+.stat.wide { grid-column: 1 / -1; }
+.stat .v .of { font-size: 18px; color: var(--ink-2); margin-left: 8px; }
 .ok { color: var(--good); font-weight: 700; }
 .ok::before { content: "✓ "; }
 .bad { color: var(--critical); font-weight: 700; }
@@ -277,7 +279,7 @@ td.p4 { color: var(--ink); font-weight: 800; text-decoration: underline; text-de
 .tgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 10px; }
 .tgrid > * { min-width: 0; }
 .tcard h3 { font-size: 14px; margin: 0 2px 10px; }
-.tcols { display: grid; gap: 14px; }
+.tcols { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
 .tcols.n2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .tlabel { font-size: 12px; font-weight: 600; margin: 0 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 svg.bars { display: block; width: 100%; height: auto; overflow: visible; border-bottom: 1px solid var(--axis); }
@@ -486,12 +488,12 @@ function nav(current: "board" | "history" | "me"): string {
     <a href="/me" ${cur("me")}>My page</a></div></nav>`;
 }
 
-function mealBlock(m: db.MealWithItems, opts: { owner?: string; color?: string; full: boolean; shareForm?: string }): string {
+function mealBlock(m: db.MealWithItems, opts: { owner?: string; color?: string; full: boolean; sugar?: boolean; shareForm?: string }): string {
   const t = mealTotals(m);
   const who = opts.owner ? `<span class="swatch" style="background:${opts.color}"></span>${esc(opts.owner)} · ` : "";
   const macros = opts.full ? ` · ${t.fat}g fat · ${t.carbs}g carbs` : "";
   const item = (it: db.FoodEntry) =>
-    `<li>${esc(it.description)} <span class="muted">(${it.calories} cal, ${it.protein_g}g P${opts.full ? `, ${it.fat_g}g F, ${it.carbs_g}g C` : ""})</span></li>`;
+    `<li>${esc(it.description)} <span class="muted">(${it.calories} cal, ${it.protein_g}g P${opts.full ? `, ${it.fat_g}g F, ${it.carbs_g}g C` : ""}${opts.sugar && it.sugar_g != null ? `, ${it.sugar_g}g sugar${it.added_sugar_g ? ` (${it.added_sugar_g}g added)` : ""}` : ""})</span></li>`;
   return `<div class="meal"><div class="meal-head"><div>${who}${m.name ? esc(m.name) : "Meal"}${
       opts.full ? (m.shared_at ? '<span class="chip on">shared</span>' : '<span class="chip">private</span>') : ""}</div>${opts.shareForm ?? ""}</div>
     <div class="tot">${fmt(t.calories)} cal · ${t.protein}g protein${macros}</div>
@@ -607,6 +609,14 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, to
     const carbSt = p.carb_target == null ? "Not scored" : s.carbs >= p.carb_target ? '<span class="ok">Hit</span> · not scored' : `${p.carb_target - s.carbs}g to go · not scored`;
     tiles.push(stat(p.carb_target != null ? `Carbs · about ${p.carb_target}g` : "Carbs", `${s.carbs}<small>g</small>`, carbSt));
   }
+  const sugarTile =
+    full && p.sugar_target != null
+      ? (() => {
+          const added = s.addedSugar ?? 0;
+          const st = s.sugar == null ? "No estimates yet" : `${added > p.sugar_target ? `<span class="bad">${added - p.sugar_target}g over</span>` : `${p.sugar_target - added}g of added left`} · ${s.sugar - added}g natural · not scored`;
+          return `<div class="stat wide"><div class="k">Sugar · added max ${p.sugar_target}g</div><div class="v">${s.sugar == null ? "–" : `${added}<small>g added</small> <span class="of">${s.sugar}<small>g total</small></span>`}</div><div class="s">${st}</div></div>`;
+        })()
+      : "";
   const sleep = s.sleepMinutes;
   tiles.push(
     stat(
@@ -626,7 +636,7 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, to
   );
   return `<div class="pcard"><div class="head"><h3><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}
       <span class="muted" style="font-weight:500">· ${p.goal_type ?? "no goal yet"}</span></h3><span class="t">${todayPts}/4 today</span></div>
-    <div class="stats">${tiles.join("")}</div></div>`;
+    <div class="stats">${tiles.join("")}${sugarTile}</div></div>`;
 }
 
 /** Watch-face ring: the arc is today's points out of 4, the number is the week total. */
@@ -867,6 +877,7 @@ function dayDetail(env: Env, p: Player, s: DayStats, full: boolean): string {
     s.foodCount ? `${fmt(s.calories)} cal` : "no food logged",
     ...(s.foodCount ? [`${s.protein}g protein`] : []),
     ...(full && s.foodCount ? [`${s.fat}g fat`, `${s.carbs}g carbs`] : []),
+    ...(full && p.sugar_target != null && s.sugar != null ? [`${s.sugar}g sugar (${s.addedSugar ?? 0}g added)`] : []),
     s.sleepMinutes != null ? `${prettyDuration(s.sleepMinutes)} sleep` : "no sleep logged",
     s.wakeAt ? `up ${prettyTime(s.wakeAt, env.GAME_TZ)}` : "no wake-up logged",
   ];
@@ -933,6 +944,35 @@ function barChart(bars: Bar[], color: string, target: (day: string) => number | 
     })
     .join("");
   return `<svg viewBox="0 0 ${W} ${H}" class="bars" role="img">${marks}</svg>`;
+}
+
+/** Sugar per day: added (solid) stacked under natural (faded), with the added-sugar limit dashed. Private. */
+function sugarCard(x: Series, days: string[], today: string, axis: string, H: number): string {
+  const W = 300, top = 8;
+  const limit = x.p.sugar_target!;
+  const known = days.map((d) => x.stat(d)).filter((s) => s.sugar != null);
+  const max = Math.max(limit, ...known.map((s) => s.sugar!), 1) * 1.08;
+  const y = (v: number) => top + (H - top) * (1 - v / max);
+  const step = W / days.length;
+  const bw = Math.max(2, Math.min(28, step * 0.62));
+  const color = seriesVar(x.i);
+  const marks = days
+    .map((d, k) => {
+      const s = x.stat(d);
+      const cx = step * k + step / 2;
+      if (s.sugar == null) return `<circle cx="${cx}" cy="${H - 2}" r="1.5" fill="var(--axis)"/>`;
+      const added = s.addedSugar ?? 0;
+      const tip = `${prettyDay(d)}: ${s.sugar}g sugar, ${added}g added${added > limit ? " (over)" : ""}, ${s.sugar - added}g natural${d === today ? " (so far)" : ""}`;
+      const r = Math.min(4, bw / 2);
+      return `<g data-tip="${esc(tip)}">
+        <rect x="${cx - bw / 2}" y="${y(s.sugar)}" width="${bw}" height="${Math.max(0, H - y(s.sugar))}" rx="${r}" fill="${color}" opacity="0.3"/>
+        ${added ? `<rect x="${cx - bw / 2}" y="${y(added)}" width="${bw}" height="${Math.max(2, H - y(added))}" rx="${r}" fill="${color}"/>` : ""}
+        <rect x="${cx - step / 2}" y="0" width="${step}" height="${H}" fill="transparent"><title>${esc(tip)}</title></rect></g>`;
+    })
+    .join("");
+  const svg = `<svg viewBox="0 0 ${W} ${H}" class="bars" role="img"><line x1="0" x2="${W}" y1="${y(limit)}" y2="${y(limit)}" class="goal"/>${marks}</svg>`;
+  return `<div class="card tcard tips"><h3>🍬 Sugar <span class="muted">· private</span></h3><div class="tcols n1"><div class="tcol" style="--gc:${color}">
+    <div class="tlabel"><span class="muted">solid = added, max ${limit}g · faded = natural</span></div>${svg}${axis}</div></div><p class="tip-out" aria-live="polite"></p></div>`;
 }
 
 /** Weight over time as a line, with the goal dashed. */
@@ -1025,11 +1065,12 @@ function trends(env: Env, series: Series[], days: string[], today: string, full:
       return `<div class="card tcard tips"><h3>${m.title}${m.same ? ` <span class="muted">· ${esc(m.goal(series[0].p))}</span>` : ""}</h3><div class="tcols n${series.length}">${cols}</div><p class="tip-out" aria-live="polite"></p></div>`;
     })
     .join("");
+  const sugar = full && series[0].p.sugar_target != null ? sugarCard(series[0], days, today, axis, h) : "";
   const weight = full
     ? `<div class="card tcard tips"><h3>⚖️ Weight <span class="muted">· private</span></h3><div class="tcols n1"><div class="tcol"><div class="tlabel"><span class="muted">${series[0].p.goal_weight_lb != null ? `goal ${series[0].p.goal_weight_lb} lb` : "no goal weight"}</span></div>
         ${lineChart(days.map((d) => ({ day: d, value: weights.find((w) => w.day === d)?.lb ?? null })), seriesVar(series[0].i), series[0].p.goal_weight_lb)}${axis}</div></div><p class="tip-out" aria-live="polite"></p></div>`
     : "";
-  return `<div class="tgrid">${cards}${weight}</div><p class="rules">Solid means the goal was hit, faded means missed; the dashed line is the goal. On wake-up, higher is earlier. Tap a bar or dot for the number.</p>`;
+  return `<div class="tgrid">${cards}${sugar}${weight}</div><p class="rules">Solid means the goal was hit, faded means missed; the dashed line is the goal. On wake-up, higher is earlier. Tap a bar or dot for the number.</p>`;
 }
 
 /** Tap or hover anything with data-tip to show it in the nearest .tip-out line. */
@@ -1101,7 +1142,7 @@ export async function privatePage(env: Env, player: Player, meToken: string, now
       <input type="hidden" name="shared" value="${m.shared_at ? "0" : "1"}">
       <button type="submit">${m.shared_at ? "Unshare" : `Share with ${esc(others)}`}</button></form>`;
   const list = (ms: db.MealWithItems[], empty: string) =>
-    ms.length ? ms.map((m) => mealBlock(m, { full: true, shareForm: shareForm(m) })).join("") : `<p class="muted" style="margin:0">${empty}</p>`;
+    ms.length ? ms.map((m) => mealBlock(m, { full: true, sugar: player.sugar_target != null, shareForm: shareForm(m) })).join("") : `<p class="muted" style="margin:0">${empty}</p>`;
   // "Share all" until every meal that day is shared, then "Unshare all".
   const shareAll = (day: string, ms: db.MealWithItems[]) => {
     if (!ms.length) return "";
