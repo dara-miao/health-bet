@@ -245,16 +245,46 @@ td.p4 { color: var(--ink); font-weight: 800; text-decoration: underline; text-de
 .chips { display: flex; gap: 6px; }
 .chips a { padding: 6px 14px; border-radius: 999px; text-decoration: none; color: var(--muted); background: var(--surface); font-size: 13px; font-weight: 600; }
 .chips a[aria-current] { color: var(--page); background: var(--ink); }
-.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
-.charts .card h3 { font-size: 13px; color: var(--ink-2); margin-bottom: 6px; }
-.charts .card h3 .muted { text-transform: none; letter-spacing: 0; }
-.chart { position: relative; height: 190px; outline: none; }
-.chart:focus-visible { box-shadow: 0 0 0 2px var(--ink); border-radius: 8px; }
-.chart svg { display: block; width: 100%; height: 100%; overflow: visible; font-family: var(--sans); }
-.chart .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
-.tip { position: absolute; pointer-events: none; background: var(--solid); box-shadow: inset 0 0 0 1px var(--ring); border-radius: 12px;
-  padding: 7px 11px; font-size: 12px; white-space: nowrap; display: none; z-index: 2; }
-.tip strong { display: block; font-size: 17px; font-weight: 700; }
+.rates-row + .rates-row { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--grid); }
+.rates-row h3 { font-size: 14px; margin: 0 2px 8px; }
+.rates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; border-radius: 14px; overflow: hidden; }
+.rate { background: var(--raise); padding: 8px 10px 10px; min-width: 0; }
+.rate .rk { font-size: 11px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rate .rv { font-size: 22px; line-height: 1.2; font-weight: 600; }
+.rate .rv small { font-size: 12px; color: var(--muted); }
+.rbar { height: 4px; border-radius: 2px; background: var(--grid); overflow: hidden; margin-top: 4px; }
+.rbar span { display: block; height: 100%; border-radius: 2px; }
+.days { padding: 6px 12px 12px; }
+.days .dhead, .drow > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+.days.one .dhead, .days.one .drow > summary { grid-template-columns: 1fr auto; }
+.days .dhead { font-size: 13px; font-weight: 600; color: var(--ink-2); padding: 8px 2px; }
+.days .dhead > span:not(:first-child) { width: 104px; }
+.drow { margin: 0; border-top: 1px solid var(--grid); }
+.drow > summary { list-style: none; padding: 9px 2px; color: var(--ink); font-size: 14px; }
+.drow > summary::-webkit-details-marker { display: none; }
+.drow .dd { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 420px) { .drow .dd small { display: none; } }
+.dp { display: inline-flex; align-items: center; gap: 2px; width: 104px; }
+.dp b { margin-left: auto; font-size: 15px; }
+.gi { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; line-height: 1; filter: grayscale(1); opacity: 0.25; }
+.gi.hit { filter: none; opacity: 1; background: color-mix(in srgb, var(--gc) 32%, transparent); }
+.ddet { padding: 0 2px 10px; font-size: 13px; color: var(--ink-2); }
+.ddet p { margin: 4px 0; }
+.trends { margin: 16px 0 0; }
+.trends > summary { list-style: none; display: inline-block; padding: 8px 16px; border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 600; font-size: 14px; }
+.trends > summary::-webkit-details-marker { display: none; }
+.trends[open] > summary { margin-bottom: 10px; }
+.tgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 10px; }
+.tgrid > * { min-width: 0; }
+.tcard h3 { font-size: 14px; margin: 0 2px 10px; }
+.tcols { display: grid; gap: 14px; }
+.tcols.n2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.tlabel { font-size: 12px; font-weight: 600; margin: 0 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+svg.bars { display: block; width: 100%; height: auto; overflow: visible; border-bottom: 1px solid var(--axis); }
+svg.bars .goal { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 4 3; opacity: 0.7; vector-effect: non-scaling-stroke; }
+.xaxis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.tip-out { font-size: 12px; color: var(--ink-2); min-height: 16px; margin: 8px 2px 0; }
+.empty-chart { font-size: 13px; margin: 20px 0; }
 details { margin: 10px 4px 0; }
 summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 form label { display: block; margin: 14px 0 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
@@ -661,7 +691,7 @@ export async function boardPage(env: Env, now: Date): Promise<Response> {
     <h2>Shared meals today</h2><div class="card">${sharedHtml || '<p class="muted" style="margin:0">Nobody has shared a meal today. Meals are private until you share one from your page or tell Poke "share my lunch".</p>'}</div>
     ${sharedYesterday ? `<h2>Shared yesterday</h2><div class="card">${sharedYesterday}</div>` : ""}
     <p class="rules">Shared here: points, calorie and protein totals, sleep, wake-up times, and meals you choose to share. Fat, carbs, weight, and unshared meals stay on each player's private page.</p>`,
-    `${GYM_JS}<script>setTimeout(() => location.reload(), 5 * 60 * 1000)</script>`,
+    `${TIP_JS}<script>setTimeout(() => location.reload(), 5 * 60 * 1000)</script>`,
   );
 }
 
@@ -748,121 +778,272 @@ async function gymCard(env: Env, players: Player[], today: string): Promise<stri
     <p class="rules">Not scored, just consistency. Text your agent "hit the gym", "played tennis", or "went for a run". Set a weekly goal with "I want to work out 3 times a week"; your streak counts the weeks you hit it.</p></div>`;
 }
 
-const GYM_JS = `<script>
+
+
+// ---------- history ----------
+
+export async function historyPage(env: Env, now: Date, range: string | null): Promise<Response> {
+  const today = gameDay(now, env.GAME_TZ);
+  const players = await db.listPlayers(env.DB);
+  const start = await historyStart(env, today);
+  const total = dayCount(start, today);
+  // Everything since the bet started. A shorter range is offered only once there's enough history for it.
+  const short = total > 35 && range === "4w";
+  const from = short ? addDays(today, -27) : start;
+  const days = daysFrom(from, today);
+
+  const weeks: string[] = [];
+  for (let w = weekStart(today); w >= weekStart(start); w = addDays(w, -7)) weeks.push(w);
+  const boards = await Promise.all(weeks.map((w) => weekBoard(env, w, w === weekStart(today) ? today : addDays(w, 6))));
+  const weekRows = boards
+    .map((b) => {
+      const live = b.start === weekStart(today);
+      const result = b.rows.length < 2 ? "" : b.loser ? `${esc(b.loser.name)} ${live ? "losing" : "lost"}` : "Draw";
+      return `<tr><td>${prettyDay(b.start).slice(4)}${live ? ' <span class="muted">· now</span>' : ""}</td>
+        ${b.rows.map((row) => `<td class="n"><strong>${row.points}</strong></td>`).join("")}<td>${result}</td></tr>`;
+    })
+    .join("");
+
+  const stats = await Promise.all(players.map((p) => db.statsForRange(env.DB, p.id, from, today)));
+  const series = players.map((p, i) => ({ p, i, stat: (d: string) => stats[i].get(d) ?? EMPTY_DAY }));
+  const chips =
+    total > 35
+      ? `<div class="chips"><a href="/history" ${short ? "" : 'aria-current="true"'}>All</a><a href="/history?range=4w" ${short ? 'aria-current="true"' : ""}>Last 4 weeks</a></div>`
+      : "";
+
+  return layout(
+    "History",
+    `${nav("history")}
+    <div class="date"><span>Since ${prettyDay(start)}</span><span>${total} day${total === 1 ? "" : "s"}</span></div>${chips}
+    <h2>Weeks</h2>
+    <div class="card table-wrap"><table><thead><tr><th>Week of</th>${players.map((p, i) => `<th class="n"><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</th>`).join("")}<th>Result</th></tr></thead>
+    <tbody>${weekRows}</tbody></table></div>
+    <h2>Goals hit</h2>${hitRates(env, series, days, today)}
+    <h2>Day by day</h2>${dayByDay(env, series, days, today, false)}
+    <details class="trends"><summary>Show trends</summary>${trends(env, series, days, today, false)}</details>
+    <h2>Gym consistency</h2>${await gymCard(env, players, today)}`,
+    TIP_JS,
+  );
+}
+
+type Series = { p: Player; i: number; stat: (d: string) => DayStats };
+
+async function historyStart(env: Env, today: string): Promise<string> {
+  const start = (await betStart(env)) ?? (await db.firstActivityDay(env.DB)) ?? today;
+  return start > today ? today : start;
+}
+const dayCount = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1;
+const daysFrom = (from: string, to: string) => Array.from({ length: dayCount(from, to) }, (_, k) => addDays(from, k));
+
+const GOALS = [
+  { key: "calOk", icon: "🔥", name: "Calories" },
+  { key: "proteinOk", icon: "💪", name: "Protein" },
+  { key: "sleepOk", icon: "😴", name: "Sleep" },
+  { key: "wakeOk", icon: "⏰", name: "On time" },
+] as const;
+
+/** Share of finished days (today is still going) each goal was hit, per player. */
+function hitRates(env: Env, series: Series[], days: string[], today: string): string {
+  const r = db.rules(env);
+  const done = days.filter((d) => d < today);
+  if (!done.length) return `<div class="card muted">Hit rates show up after the first full day.</div>`;
+  const rows = series
+    .map(({ p, i, stat }) => {
+      const scores = done.map((d) => scoreDay(p, stat(d), r, d));
+      const cells = GOALS.map((g) => {
+        const pct = Math.round((scores.filter((x) => x[g.key]).length / scores.length) * 100);
+        return `<div class="rate"><div class="rk">${g.name}</div><div class="rv">${pct}<small>%</small></div>
+          <div class="rbar"><span style="width:${pct}%;background:${seriesVar(i)}"></span></div></div>`;
+      }).join("");
+      return `<div class="rates-row"><h3><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</h3><div class="rates">${cells}</div></div>`;
+    })
+    .join("");
+  return `<div class="card">${rows}<p class="rules">Out of ${done.length} finished day${done.length === 1 ? "" : "s"}.</p></div>`;
+}
+
+/** What one player did on a day, in words. `full` adds the private macros. */
+function dayDetail(env: Env, p: Player, s: DayStats, full: boolean): string {
+  const parts = [
+    s.foodCount ? `${fmt(s.calories)} cal` : "no food logged",
+    ...(s.foodCount ? [`${s.protein}g protein`] : []),
+    ...(full && s.foodCount ? [`${s.fat}g fat`, `${s.carbs}g carbs`] : []),
+    s.sleepMinutes != null ? `${prettyDuration(s.sleepMinutes)} sleep` : "no sleep logged",
+    s.wakeAt ? `up ${prettyTime(s.wakeAt, env.GAME_TZ)}` : "no wake-up logged",
+  ];
+  return parts.join(" · ");
+}
+
+/** Newest day first. Each player gets the four goals as icons, filled when hit. Tap a day for the numbers. */
+function dayByDay(env: Env, series: Series[], days: string[], today: string, full: boolean): string {
+  const r = db.rules(env);
+  const icons = (sc: ReturnType<typeof scoreDay>) =>
+    GOALS.map((g) => `<span class="gi${sc[g.key] ? " hit" : ""}" title="${g.name}: ${sc[g.key] ? "hit" : "missed"}">${g.icon}</span>`).join("");
+  const rows = [...days]
+    .reverse()
+    .map((d) => {
+      const cells = series
+        .map(({ p, i, stat }) => {
+          const sc = scoreDay(p, stat(d), r, d);
+          return `<span class="dp" style="--gc:${seriesVar(i)}" aria-label="${esc(p.name)}: ${sc.points} of 4">${icons(sc)}<b>${sc.points}</b></span>`;
+        })
+        .join("");
+      const detail = series
+        .map(({ p, i, stat }) => `<p><span class="swatch" style="background:${seriesVar(i)}"></span><strong>${esc(p.name)}</strong> ${dayDetail(env, p, stat(d), full)}</p>`)
+        .join("");
+      return `<details class="drow"><summary><span class="dd">${d === today ? "Today" : prettyDay(d)}${d === today ? ' <small class="muted">so far</small>' : ""}</span>${cells}</summary><div class="ddet">${detail}</div></details>`;
+    })
+    .join("");
+  const head = series.length > 1
+    ? `<div class="dhead"><span></span>${series.map(({ p, i }) => `<span><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</span>`).join("")}</div>`
+    : "";
+  return `<div class="card days${series.length > 1 ? "" : " one"}">${head}${rows}
+    <p class="rules">🔥 calories · 💪 protein · 😴 ${prettyDuration(r.sleepTargetMinutes).replace(" 00m", "")}+ sleep · ⏰ up on time. Faded means missed. Tap a day for the numbers.</p></div>`;
+}
+
+// Wake-up dots plot (WAKE_SPAN - minutes after midnight), so 5am sits at the top and 1pm at the bottom.
+const WAKE_SPAN = 24 * 60;
+
+type Bar = { day: string; value: number | null; hit: boolean; tip: string };
+
+/**
+ * Daily bars: solid when the goal was hit, faded when missed, with the goal as a dashed line.
+ * `target` can vary by day (the wake-up deadline is later on weekends).
+ */
+function barChart(bars: Bar[], color: string, target: (day: string) => number | null, opts: { dots?: boolean; h?: number } = {}): string {
+  const W = 300, H = opts.h ?? 150, top = 8;
+  const vals = bars.flatMap((b) => [b.value, target(b.day)]).filter((v): v is number => v != null);
+  // Bars start at zero; dots zoom in on the range they use.
+  const min = opts.dots ? Math.min(...vals) - 40 : 0;
+  const max = opts.dots ? Math.max(...vals) + 40 : Math.max(...vals, 1) * 1.08;
+  const y = (v: number) => top + (H - top - 6) * (1 - (Math.min(Math.max(v, min), max) - min) / (max - min));
+  const step = W / bars.length;
+  const bw = Math.max(2, Math.min(28, step * 0.62));
+  const marks = bars
+    .map((b, k) => {
+      const cx = step * k + step / 2;
+      const t = target(b.day);
+      const goal = t != null ? `<line x1="${cx - step / 2}" x2="${cx + step / 2}" y1="${y(t)}" y2="${y(t)}" class="goal"/>` : "";
+      const bar =
+        b.value == null
+          ? `<circle cx="${cx}" cy="${H - 2}" r="1.5" fill="var(--axis)"/>`
+          : opts.dots
+          ? `<circle cx="${cx}" cy="${y(b.value)}" r="6" fill="${color}" opacity="${b.hit ? 1 : 0.32}"/>`
+          : `<rect x="${cx - bw / 2}" y="${Math.min(y(b.value), H - 2)}" width="${bw}" height="${Math.max(2, H - y(b.value))}" rx="${Math.min(4, bw / 2)}" fill="${color}" opacity="${b.hit ? 1 : 0.32}"/>`;
+      return `<g data-tip="${esc(b.tip)}">${goal}${bar}<rect x="${cx - step / 2}" y="0" width="${step}" height="${H}" fill="transparent"><title>${esc(b.tip)}</title></rect></g>`;
+    })
+    .join("");
+  return `<svg viewBox="0 0 ${W} ${H}" class="bars" role="img">${marks}</svg>`;
+}
+
+/** Weight over time as a line, with the goal dashed. */
+function lineChart(points: { day: string; value: number | null }[], color: string, goal: number | null): string {
+  const W = 300, H = 90, pad = 8;
+  const known = points.filter((x) => x.value != null) as { day: string; value: number }[];
+  if (!known.length) return `<p class="muted empty-chart">No weigh-ins yet. Text Poke your weight.</p>`;
+  const vals = [...known.map((x) => x.value), ...(goal != null ? [goal] : [])];
+  const lo = Math.min(...vals) - 1, hi = Math.max(...vals) + 1;
+  const x = (k: number) => pad + ((W - 2 * pad) * k) / Math.max(1, points.length - 1);
+  const y = (v: number) => pad + (H - 2 * pad) * (1 - (v - lo) / (hi - lo));
+  const idx = (d: string) => points.findIndex((p) => p.day === d);
+  const path = known.map((k, n) => `${n ? "L" : "M"}${x(idx(k.day)).toFixed(1)},${y(k.value).toFixed(1)}`).join("");
+  const dots = known
+    .map((k) => `<g data-tip="${prettyDay(k.day)}: ${k.value} lb"><circle cx="${x(idx(k.day))}" cy="${y(k.value)}" r="3.5" fill="${color}"/><circle cx="${x(idx(k.day))}" cy="${y(k.value)}" r="12" fill="transparent"><title>${prettyDay(k.day)}: ${k.value} lb</title></circle></g>`)
+    .join("");
+  const g = goal != null ? `<line x1="0" x2="${W}" y1="${y(goal)}" y2="${y(goal)}" class="goal"/>` : "";
+  return `<svg viewBox="0 0 ${W} ${H}" class="bars" role="img">${g}<path d="${path}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/>${dots}</svg>`;
+}
+
+/** One card per goal, with each player's bars side by side so they're easy to compare. */
+function trends(env: Env, series: Series[], days: string[], today: string, full: boolean, weights: { day: string; lb: number }[] = []): string {
+  const r = db.rules(env);
+  const axis = `<div class="xaxis"><span>${prettyDay(days[0]).slice(4)}</span><span>${days.length > 1 ? prettyDay(days.at(-1)!).slice(4) : ""}</span></div>`;
+  const clock = (min: number) => prettyClock(Math.round(min)).toLowerCase().replace(" ", "");
+  type Metric = { title: string; goal: (p: Player) => string; chart: (s: Series) => string; same?: boolean };
+  const h = series.length > 1 ? 150 : 90;
+  const bars = ({ p, stat }: Series, value: (s: DayStats) => number | null, hit: (s: DayStats, d: string) => boolean, tip: (s: DayStats, v: number) => string) =>
+    days.map((d) => {
+      const s = stat(d);
+      const v = value(s);
+      return { day: d, value: v, hit: v != null && hit(s, d), tip: `${prettyDay(d)}: ${v == null ? "not logged" : tip(s, v)}${d === today ? " (so far)" : ""}` };
+    });
+  const food = (s: DayStats, v: number) => (s.foodCount ? v : null);
+  const metrics: Metric[] = [
+    {
+      title: "🔥 Calories",
+      goal: (p) => (p.calorie_target == null ? "no goal" : `${p.goal_type === "cut" ? "max" : "min"} ${fmt(p.calorie_target)}`),
+      chart: (x) => barChart(bars(x, (s) => food(s, s.calories), (s, d) => scoreDay(x.p, s, r, d).calOk, (_, v) => `${fmt(v)} cal`), seriesVar(x.i), () => x.p.calorie_target, { h }),
+    },
+    {
+      title: "💪 Protein",
+      goal: (p) => (p.protein_target == null ? "no goal" : `min ${p.protein_target}g`),
+      chart: (x) => barChart(bars(x, (s) => food(s, s.protein), (s) => x.p.protein_target != null && s.protein >= x.p.protein_target, (_, v) => `${v}g protein`), seriesVar(x.i), () => x.p.protein_target, { h }),
+    },
+    ...(full
+      ? [
+          {
+            title: "🥑 Fat",
+            goal: (p: Player) => (p.fat_target == null ? "not scored" : `min ${p.fat_target}g · not scored`),
+            chart: (x: Series) => barChart(bars(x, (s) => food(s, s.fat), (s) => x.p.fat_target == null || s.fat >= x.p.fat_target, (_, v) => `${v}g fat`), seriesVar(x.i), () => x.p.fat_target, { h }),
+          },
+          {
+            title: "🍞 Carbs",
+            goal: (p: Player) => (p.carb_target == null ? "not scored" : `about ${p.carb_target}g · not scored`),
+            chart: (x: Series) =>
+              barChart(bars(x, (s) => food(s, s.carbs), (s) => x.p.carb_target == null || Math.abs(s.carbs - x.p.carb_target) <= x.p.carb_target * 0.15, (_, v) => `${v}g carbs`), seriesVar(x.i), () => x.p.carb_target, { h }),
+          },
+        ]
+      : []),
+    {
+      title: "😴 Sleep",
+      same: true,
+      goal: () => `${prettyDuration(r.sleepTargetMinutes).replace(" 00m", "")}+`,
+      chart: (x) => barChart(bars(x, (s) => (s.sleepMinutes == null ? null : s.sleepMinutes / 60), (s) => (s.sleepMinutes ?? 0) >= r.sleepTargetMinutes, (s) => prettyDuration(s.sleepMinutes!)), seriesVar(x.i), () => r.sleepTargetMinutes / 60, { h }),
+    },
+    {
+      title: "⏰ Wake-up",
+      same: true,
+      goal: () => `by ${clock(r.wakeWeekday)}, weekends ${clock(r.wakeWeekend)}`,
+      // Earlier is higher, so a dot above the line is on time.
+      chart: (x) =>
+        barChart(
+          bars(x, (s) => (s.wakeAt ? WAKE_SPAN - wakeMinutes(s.wakeAt, r.tz) : null), (s, d) => wakeGoalMet(d, s, r), (s) => `up ${clock(wakeMinutes(s.wakeAt!, r.tz))}`),
+          seriesVar(x.i),
+          (d) => WAKE_SPAN - wakeTarget(d, r),
+          { dots: true, h },
+        ),
+    },
+  ];
+  const cards = metrics
+    .map((m) => {
+      const cols = series
+        .map((x) => {
+          const name = series.length > 1 ? `<span class="swatch" style="background:${seriesVar(x.i)}"></span>${esc(x.p.name)}` : "";
+          const goal = m.same ? "" : `<span class="muted">${name ? " · " : ""}${esc(m.goal(x.p))}</span>`;
+          return `<div class="tcol" style="--gc:${seriesVar(x.i)}">${name || goal ? `<div class="tlabel">${name}${goal}</div>` : ""}${m.chart(x)}${axis}</div>`;
+        })
+        .join("");
+      return `<div class="card tcard tips"><h3>${m.title}${m.same ? ` <span class="muted">· ${esc(m.goal(series[0].p))}</span>` : ""}</h3><div class="tcols n${series.length}">${cols}</div><p class="tip-out" aria-live="polite"></p></div>`;
+    })
+    .join("");
+  const weight = full
+    ? `<div class="card tcard tips"><h3>⚖️ Weight <span class="muted">· private</span></h3><div class="tcols n1"><div class="tcol"><div class="tlabel"><span class="muted">${series[0].p.goal_weight_lb != null ? `goal ${series[0].p.goal_weight_lb} lb` : "no goal weight"}</span></div>
+        ${lineChart(days.map((d) => ({ day: d, value: weights.find((w) => w.day === d)?.lb ?? null })), seriesVar(series[0].i), series[0].p.goal_weight_lb)}${axis}</div></div><p class="tip-out" aria-live="polite"></p></div>`
+    : "";
+  return `<div class="tgrid">${cards}${weight}</div><p class="rules">Solid means the goal was hit, faded means missed; the dashed line is the goal. On wake-up, higher is earlier. Tap a bar or dot for the number.</p>`;
+}
+
+/** Tap or hover anything with data-tip to show it in the nearest .tip-out line. */
+const TIP_JS = `<script>
 document.querySelectorAll(".gym-scroll").forEach((el) => (el.scrollLeft = el.scrollWidth));
-document.querySelectorAll(".gym").forEach((card) => {
-  const tip = card.querySelector(".gym-tip");
-  const show = (e) => { const c = e.target.closest("[data-tip]"); if (c) tip.textContent = c.dataset.tip; };
+document.querySelectorAll(".tips, .gym").forEach((card) => {
+  const out = card.querySelector(".tip-out, .gym-tip");
+  if (!out) return;
+  const show = (e) => { const c = e.target.closest("[data-tip]"); if (c && card.contains(c)) out.textContent = c.dataset.tip; };
   card.addEventListener("pointerover", show);
   card.addEventListener("focusin", show);
   card.addEventListener("click", show);
 });
 </script>`;
-
-// ---------- history ----------
-
-export async function historyPage(env: Env, now: Date, rangeDays: number): Promise<Response> {
-  const today = gameDay(now, env.GAME_TZ);
-  const r = db.rules(env);
-  const players = await db.listPlayers(env.DB);
-  const firstDay = [(await db.firstActivityDay(env.DB)) ?? today, (await betStart(env)) ?? ""].sort().at(-1)!;
-
-  // Weekly results, newest first, from the first week with any activity.
-  const weeks: string[] = [];
-  for (let w = weekStart(today); w >= weekStart(firstDay); w = addDays(w, -7)) weeks.push(w);
-  const boards = await Promise.all(weeks.map((w) => weekBoard(env, w, w === weekStart(today) ? today : addDays(w, 6))));
-  const weekRows = boards
-    .map((b) => {
-      const live = b.start === weekStart(today);
-      const result = b.rows.length < 2 ? "" : b.loser ? `${esc(b.loser.name)} ${live ? "losing" : "lost"}` : "draw";
-      return `<tr><td>${prettyDay(b.start)}${live ? ' <span class="muted">(this week)</span>' : ""}</td>
-        ${b.rows.map((row) => `<td class="n">${row.points}</td>`).join("")}<td>${result}</td></tr>`;
-    })
-    .join("");
-
-  const from = addDays(today, -(rangeDays - 1));
-  const days = Array.from({ length: rangeDays }, (_, k) => addDays(from, k));
-  const sections = await Promise.all(players.map((p, i) => playerHistory(env, p, i, days, today, firstDay, false)));
-  const chips = [14, 30, 90]
-    .map((n) => `<a href="/history?days=${n}" ${n === rangeDays ? 'aria-current="true"' : ""}>${n} days</a>`)
-    .join("");
-
-  const data = { days, labels: days.map(prettyDay), charts: Object.assign({}, ...sections.map((x) => x.charts)) };
-
-  return layout(
-    "History",
-    `${nav("history")}
-    <div class="chips">${chips}</div>
-    <h2>Weekly results</h2>
-    <div class="card table-wrap"><table><thead><tr><th>Week of</th>${players.map((p, i) => `<th class="n"><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</th>`).join("")}<th>Result</th></tr></thead>
-    <tbody>${weekRows}</tbody></table></div>
-    <h2>Gym consistency</h2>${await gymCard(env, players, today)}
-    ${sections.map((x) => x.html).join("") || '<p class="muted">No players yet.</p>'}`,
-    `${GYM_JS}<script type="application/json" id="chart-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
-    <script>${CHART_JS}</script>`,
-  );
-}
-
-/** One player's hit rates and charts. `full` adds the private charts (fat, weight). */
-async function playerHistory(env: Env, p: Player, i: number, days: string[], today: string, firstDay: string, full: boolean) {
-  const r = db.rules(env);
-  const [stats, weights] = await Promise.all([
-    db.statsForRange(env.DB, p.id, days[0], today),
-    full ? db.weightsForPlayer(env.DB, p.id) : Promise.resolve([]),
-  ]);
-  const s = (d: string) => stats.get(d) ?? EMPTY_DAY;
-  const logged = (d: string) => s(d).foodCount > 0;
-  const wByDay = new Map(weights.map((w) => [w.day, w.lb]));
-  const charts: any[] = [
-    { title: "Calories", unit: "cal", target: p.calorie_target, targetLabel: p.goal_type === "cut" ? "max" : "min", values: days.map((d) => (logged(d) ? s(d).calories : null)) },
-    { title: "Protein", unit: "g", target: p.protein_target, targetLabel: "min", values: days.map((d) => (logged(d) ? s(d).protein : null)) },
-    ...(full
-      ? [
-          { title: "Fat", unit: "g", target: p.fat_target, targetLabel: "min", values: days.map((d) => (logged(d) ? s(d).fat : null)) },
-          { title: "Carbs", unit: "g", target: p.carb_target, targetLabel: "about", values: days.map((d) => (logged(d) ? s(d).carbs : null)) },
-        ]
-      : []),
-    { title: "Sleep", unit: "h", target: r.sleepTargetMinutes / 60, targetLabel: "target", values: days.map((d) => (s(d).sleepMinutes == null ? null : Math.round((s(d).sleepMinutes! / 60) * 10) / 10)) },
-    {
-      title: "Wake-up",
-      unit: "time",
-      target: null,
-      targetLabel: "",
-      note: `by ${prettyClock(r.wakeWeekday)} weekdays · ${prettyClock(r.wakeWeekend)} weekends`,
-      values: days.map((d) => (s(d).wakeAt ? wakeMinutes(s(d).wakeAt!, r.tz) / 60 : null)),
-      zeroBased: false,
-    },
-    ...(full ? [{ title: "Weight", unit: "lb", target: p.goal_weight_lb, targetLabel: "goal", values: days.map((d) => wByDay.get(d) ?? null), zeroBased: false }] : []),
-  ];
-  let streak = 0;
-  for (let d = addDays(today, -1); d >= firstDay; d = addDays(d, -1)) {
-    if (scoreDay(p, s(d), r, d).points === 4) streak++;
-    else break;
-  }
-  // Finished days since this player started tracking.
-  const started = days.find((d) => d >= firstDay && (s(d).foodCount > 0 || s(d).sleepMinutes != null));
-  const hits = days.filter((d) => started && d >= started && d < today).map((d) => scoreDay(p, s(d), r, d));
-  const rate = (k: "calOk" | "proteinOk" | "sleepOk" | "wakeOk") => Math.round((hits.filter((h) => h[k]).length / hits.length) * 100);
-  const rates = hits.length ? `Goals hit on ${hits.length} finished day${hits.length > 1 ? "s" : ""}: calories ${rate("calOk")}% · protein ${rate("proteinOk")}% · sleep ${rate("sleepOk")}% · up on time ${rate("wakeOk")}%` : "Hit rates show up after the first full day.";
-
-  const chartDivs = charts
-    .map(
-      (c, k) => `<div class="card"><h3>${c.title}${c.target != null ? ` <span class="muted">· ${c.targetLabel} ${fmt(c.target)}${c.unit === "cal" ? "" : c.unit}</span>` : c.note ? ` <span class="muted">· ${c.note}</span>` : ""}</h3>
-      <div class="chart" tabindex="0" data-chart="${i}-${k}" aria-label="${esc(p.name)} ${c.title} chart. Use left and right arrows to read values."></div></div>`,
-    )
-    .join("");
-  const cell = (c: any, v: number | null) => (v == null ? "–" : c.unit === "time" ? prettyClock(Math.round(v * 60)) : fmt(v));
-  const tableRows = days
-    .map((d, k) => `<tr><td>${prettyDay(d)}</td>${charts.map((c) => `<td class="n">${cell(c, c.values[k])}</td>`).join("")}</tr>`)
-    .reverse()
-    .join("");
-  const html = `<h2><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}</h2>
-    <p class="sub">${rates}${streak ? ` · 🔥 ${streak}-day perfect streak` : ""}</p>
-    <div class="charts">${chartDivs}</div>
-    <details><summary>Show as table</summary><div class="card table-wrap" style="margin-top:8px"><table>
-      <thead><tr><th>Day</th>${charts.map((c) => `<th class="n">${c.title}${c.unit === "time" ? "" : ` (${c.unit})`}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table></div></details>`;
-  return { html, charts: Object.fromEntries(charts.map((c, k) => [`${i}-${k}`, { ...c, color: SERIES[i % SERIES.length] }])) };
-}
 
 // ---------- scoreboard password (once per phone) ----------
 
@@ -931,11 +1112,10 @@ export async function privatePage(env: Env, player: Player, meToken: string, now
   const dayHead = (title: string, day: string, ms: db.MealWithItems[]) =>
     `<div class="day-head"><h2>${title}</h2>${shareAll(day, ms)}</div>`;
 
-  const days = Array.from({ length: 30 }, (_, k) => addDays(today, k - 29));
-  const firstDay = [(await db.firstActivityDay(env.DB)) ?? today, (await betStart(env)) ?? ""].sort().at(-1)!;
-  const hist = await playerHistory(env, player, i, days, today, firstDay, true);
-  const data = { days, labels: days.map(prettyDay), charts: hist.charts };
-
+  const start = await historyStart(env, today);
+  const days = daysFrom(start, today);
+  const [stats, weights] = await Promise.all([db.statsForRange(env.DB, player.id, start, today), db.weightsForPlayer(env.DB, player.id)]);
+  const me: Series[] = [{ p: player, i, stat: (d) => stats.get(d) ?? EMPTY_DAY }];
   return layout(
     `${player.name}'s page`,
     `${nav("me")}
@@ -943,93 +1123,9 @@ export async function privatePage(env: Env, player: Player, meToken: string, now
     <div class="players">${playerCard(env, player, i, s, today, scoreDay(player, s, r, today).points, true)}</div>
     ${dayHead("Today's food", today, todayMeals)}<div class="card">${list(todayMeals, "Nothing logged yet today. Text Poke what you ate.")}</div>
     ${dayHead("Yesterday", addDays(today, -1), yMeals)}<div class="card">${list(yMeals, "Nothing logged yesterday.")}</div>
-    ${hist.html.replace(/<h2>.*?<\/h2>/s, "<h2>Last 30 days</h2>")}`,
-    `<script type="application/json" id="chart-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
-    <script>${CHART_JS}</script>`,
+    <h2>Since ${prettyDay(start)}</h2>${hitRates(env, me, days, today)}
+    <h2>Day by day</h2>${dayByDay(env, me, days, today, true)}
+    <details class="trends"><summary>Show trends</summary>${trends(env, me, days, today, true, weights)}</details>`,
+    TIP_JS,
   );
 }
-
-// Line chart with a target reference line, crosshair and tooltip. One series per chart.
-const CHART_JS = `
-(() => {
-  const data = JSON.parse(document.getElementById("chart-data").textContent);
-  const NS = "http://www.w3.org/2000/svg";
-  const num = (n) => Math.round(n * 10) / 10 >= 1000 ? Math.round(n).toLocaleString("en-US") : String(Math.round(n * 10) / 10);
-  const clock = (h) => { const m = Math.round(h * 60), hh = Math.floor(m / 60) % 24; return (hh % 12 || 12) + ":" + String(m % 60).padStart(2, "0") + (hh < 12 ? "am" : "pm"); };
-
-  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
-  function niceStep(v) { const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p; return 10 * p; }
-
-  function draw(host, c) {
-    host.innerHTML = "";
-    const fmt = c.unit === "time" ? clock : num;
-    const vals = c.values.filter((v) => v != null);
-    if (!vals.length) { const d = document.createElement("div"); d.className = "empty"; d.textContent = "Nothing logged yet"; host.appendChild(d); return; }
-    const W = host.clientWidth, H = host.clientHeight, L = 44, R = 12, T = 10, B = 24;
-    const all = c.target != null ? vals.concat([c.target]) : vals;
-    // Round ticks: 4 intervals of a 1/2/2.5/5 step, from 0 (or near the data, for weight).
-    let lo = c.zeroBased === false ? Math.min(...all) : 0, hi = Math.max(...all) * 1.08 || 1;
-    if (c.zeroBased === false) { lo -= Math.max(1, (hi - lo) * 0.25); hi += Math.max(1, (hi - lo) * 0.1); }
-    const step = niceStep((hi - lo) / 4);
-    lo = Math.floor(lo / step) * step; hi = lo + step * Math.ceil((hi - lo) / step);
-    const ticks = []; for (let v = lo; v <= hi + step / 2; v += step) ticks.push(v);
-    const n = c.values.length;
-    const x = (k) => L + (n === 1 ? (W - L - R) / 2 : (k * (W - L - R)) / (n - 1));
-    const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
-    const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img" }, host);
-    const css = (v) => "var(" + v + ")";
-    for (const v of ticks) {
-      const yy = y(v);
-      el("line", { x1: L, x2: W - R, y1: yy, y2: yy, stroke: css(v === lo ? "--axis" : "--grid"), "stroke-width": 1 }, svg);
-      el("text", { x: L - 6, y: yy + 4, "text-anchor": "end", "font-size": 11, fill: css("--muted") }, svg).textContent = fmt(v);
-    }
-    for (const k of [0, Math.floor((n - 1) / 2), n - 1]) {
-      el("text", { x: x(k), y: H - 6, "text-anchor": k === 0 ? "start" : k === n - 1 ? "end" : "middle", "font-size": 11, fill: css("--muted") }, svg).textContent = data.labels[k].slice(4);
-    }
-    if (c.target != null) {
-      const ty = y(c.target);
-      el("line", { x1: L, x2: W - R, y1: ty, y2: ty, stroke: css("--ink-2"), "stroke-width": 1, opacity: 0.6 }, svg);
-      el("text", { x: L + 4, y: ty - 4, "text-anchor": "start", "font-size": 11, fill: css("--ink-2") }, svg).textContent = c.targetLabel + " " + fmt(c.target);
-    }
-    // Line segments, broken where days are missing; isolated points get a dot so they're visible.
-    let d = "";
-    c.values.forEach((v, k) => { if (v == null) return; d += (k > 0 && c.values[k - 1] != null ? "L" : "M") + x(k) + " " + y(v); });
-    el("path", { d, fill: "none", stroke: css(c.color), "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
-    c.values.forEach((v, k) => {
-      if (v == null) return;
-      const isolated = (k === 0 || c.values[k - 1] == null) && (k === n - 1 || c.values[k + 1] == null);
-      const last = c.values.slice(k + 1).every((u) => u == null);
-      if (isolated || last) el("circle", { cx: x(k), cy: y(v), r: 4, fill: css(c.color), stroke: css("--surface"), "stroke-width": 2 }, svg);
-    });
-    const lastK = c.values.map((v, k) => (v == null ? -1 : k)).filter((k) => k >= 0).pop();
-    el("text", { x: Math.min(x(lastK), W - R), y: y(c.values[lastK]) - 9, "text-anchor": "end", "font-size": 12, "font-weight": 600, fill: css("--ink") }, svg).textContent = fmt(c.values[lastK]);
-
-    // Hover layer: crosshair snaps to the nearest day.
-    const cross = el("line", { y1: T, y2: H - B, stroke: css("--axis"), "stroke-width": 1, visibility: "hidden" }, svg);
-    const dot = el("circle", { r: 4, fill: css(c.color), stroke: css("--surface"), "stroke-width": 2, visibility: "hidden" }, svg);
-    const tip = document.createElement("div"); tip.className = "tip"; host.appendChild(tip);
-    let cur = lastK;
-    function show(k) {
-      cur = Math.max(0, Math.min(n - 1, k));
-      const v = c.values[cur];
-      cross.setAttribute("x1", x(cur)); cross.setAttribute("x2", x(cur)); cross.setAttribute("visibility", "visible");
-      if (v != null) { dot.setAttribute("cx", x(cur)); dot.setAttribute("cy", y(v)); dot.setAttribute("visibility", "visible"); } else dot.setAttribute("visibility", "hidden");
-      tip.replaceChildren();
-      const strong = document.createElement("strong"); strong.textContent = v == null ? "not logged" : fmt(v) + (c.unit === "time" ? "" : " " + c.unit);
-      const sub = document.createElement("span"); sub.className = "muted"; sub.textContent = data.labels[cur];
-      tip.append(strong, sub); tip.style.display = "block";
-      const right = x(cur) + 10 + tip.offsetWidth <= W;
-      tip.style.left = (right ? x(cur) + 10 : x(cur) - 10 - tip.offsetWidth) + "px"; tip.style.top = T + "px";
-    }
-    function hide() { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); tip.style.display = "none"; }
-    host.onpointermove = (e) => { const r = host.getBoundingClientRect(); show(Math.round(((e.clientX - r.left - L) / (W - L - R)) * (n - 1))); };
-    host.onpointerleave = hide;
-    host.onfocus = () => show(cur);
-    host.onblur = hide;
-    host.onkeydown = (e) => { if (e.key === "ArrowLeft") { show(cur - 1); e.preventDefault(); } if (e.key === "ArrowRight") { show(cur + 1); e.preventDefault(); } };
-  }
-  const render = () => document.querySelectorAll("[data-chart]").forEach((h) => draw(h, data.charts[h.dataset.chart]));
-  render();
-  let t; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(render, 150); });
-})();
-`;

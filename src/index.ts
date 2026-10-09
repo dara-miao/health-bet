@@ -64,8 +64,7 @@ export default {
         return res;
       }
       if (path === "/") return boardPage(env, new Date());
-      const days = [14, 30, 90].includes(Number(url.searchParams.get("days"))) ? Number(url.searchParams.get("days")) : 30;
-      return historyPage(env, new Date(), days);
+      return historyPage(env, new Date(), url.searchParams.get("range"));
     }
     // Old secret scoreboard links still work.
     const old = path.match(/^\/b\/[\w-]+(\/history)?$/);
