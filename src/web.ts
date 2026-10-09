@@ -820,7 +820,7 @@ export async function historyPage(env: Env, now: Date, range: string | null): Pr
     <tbody>${weekRows}</tbody></table></div>
     <h2>Goals hit</h2>${hitRates(env, series, days, today)}
     <h2>Day by day</h2>${dayByDay(env, series, days, today, false)}
-    <details class="trends"><summary>Show trends</summary>${trends(env, series, days, today, false)}</details>
+    <h2>Trends</h2>${trends(env, series, days, today, false)}
     <h2>Gym consistency</h2>${await gymCard(env, players, today)}`,
     TIP_JS,
   );
@@ -1125,7 +1125,7 @@ export async function privatePage(env: Env, player: Player, meToken: string, now
     ${dayHead("Yesterday", addDays(today, -1), yMeals)}<div class="card">${list(yMeals, "Nothing logged yesterday.")}</div>
     <h2>Since ${prettyDay(start)}</h2>${hitRates(env, me, days, today)}
     <h2>Day by day</h2>${dayByDay(env, me, days, today, true)}
-    <details class="trends"><summary>Show trends</summary>${trends(env, me, days, today, true, weights)}</details>`,
+    <h2>Trends</h2>${trends(env, me, days, today, true, weights)}`,
     TIP_JS,
   );
 }
