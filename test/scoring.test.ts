@@ -79,3 +79,15 @@ describe("weekLoser", () => {
     expect(weekLoser([{ points: 10, sleepMinutes: 3000 }, { points: 10, sleepMinutes: 3000 }])).toBeNull();
   });
 });
+
+describe("break days", () => {
+  it("use the weekend wake time on weekdays", async () => {
+    const { breakDays } = await import("../src/db");
+    const { wakeTarget } = await import("../src/scoring");
+    const r = { tz: "America/Los_Angeles", sleepTargetMinutes: 420, cutFloorCalories: 1200, wakeWeekday: 510, wakeWeekend: 630, wakeGraceMinutes: 10, breakDays: breakDays("2026-10-08..2026-10-09, 2026-11-26") };
+    expect(wakeTarget("2026-10-07", r)).toBe(510);
+    expect(wakeTarget("2026-10-08", r)).toBe(630);
+    expect(wakeTarget("2026-10-09", r)).toBe(630);
+    expect(wakeTarget("2026-11-26", r)).toBe(630);
+  });
+});

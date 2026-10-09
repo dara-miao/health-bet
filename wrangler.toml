@@ -12,6 +12,8 @@ SLEEP_TARGET_HOURS = "7"
 WAKE_WEEKDAY = "08:30"
 WAKE_WEEKEND = "10:30"
 WAKE_GRACE_MINUTES = "10"
+# School breaks: these weekdays use the weekend wake-up time. Comma-separated dates or from..to ranges.
+BREAK_DAYS = "2026-10-08..2026-10-09"
 # A cut day under this many calories never earns the calorie point.
 CUT_FLOOR_CALORIES = "1200"
 

@@ -1,5 +1,6 @@
 import type { Workout } from "./gym";
 import { EMPTY_DAY, type DayStats, type GoalType, type Rules } from "./scoring";
+import { addDays } from "./time";
 
 export interface Env {
   DB: D1Database;
@@ -9,6 +10,7 @@ export interface Env {
   WAKE_WEEKDAY: string; // "08:30"
   WAKE_WEEKEND: string; // "10:30"
   WAKE_GRACE_MINUTES: string;
+  BREAK_DAYS?: string; // "2026-10-08,2026-10-09" or ranges "2026-11-25..2026-11-29"
   JOIN_CODE: string;
   POKE_API_URL?: string; // override for local testing
 }
@@ -18,6 +20,17 @@ const clock = (hhmm: string) => {
   return h * 60 + (m || 0);
 };
 
+/** Parses "2026-10-08,2026-11-25..2026-11-29" into the set of dates. */
+export function breakDays(raw: string | undefined): Set<string> {
+  const out = new Set<string>();
+  for (const part of (raw ?? "").split(",").map((x) => x.trim()).filter(Boolean)) {
+    const [from, to = from] = part.split("..").map((x) => x.trim());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) continue;
+    for (let d = from, n = 0; d <= to && n < 60; d = addDays(d, 1), n++) out.add(d);
+  }
+  return out;
+}
+
 export function rules(env: Env): Rules {
   return {
     tz: env.GAME_TZ,
@@ -26,6 +39,7 @@ export function rules(env: Env): Rules {
     wakeWeekday: clock(env.WAKE_WEEKDAY),
     wakeWeekend: clock(env.WAKE_WEEKEND),
     wakeGraceMinutes: Number(env.WAKE_GRACE_MINUTES),
+    breakDays: breakDays(env.BREAK_DAYS),
   };
 }
 

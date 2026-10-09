@@ -27,6 +27,7 @@ export interface Rules {
   wakeWeekday: number; // minutes after midnight, e.g. 510 = 8:30am
   wakeWeekend: number;
   wakeGraceMinutes: number;
+  breakDays?: Set<string>; // school breaks and holidays: weekday dates that use the weekend wake time
 }
 
 export interface DayStats {
@@ -67,10 +68,10 @@ export function sleepGoalMet(stats: DayStats, rules: Rules): boolean {
   return stats.sleepMinutes != null && stats.sleepMinutes >= rules.sleepTargetMinutes;
 }
 
-/** The wake-up time for a day, in minutes after midnight (Saturday and Sunday use the weekend time). */
+/** The wake-up time for a day, in minutes after midnight (weekends and break days use the weekend time). */
 export function wakeTarget(day: string, rules: Rules): number {
   const wd = weekdayOf(day);
-  return wd === 0 || wd === 6 ? rules.wakeWeekend : rules.wakeWeekday;
+  return wd === 0 || wd === 6 || rules.breakDays?.has(day) ? rules.wakeWeekend : rules.wakeWeekday;
 }
 
 export function wakeMinutes(wakeAt: string, tz: string): number {
