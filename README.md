@@ -54,7 +54,7 @@ Each day, each player can earn up to **4 points**:
 |---|---|---|
 | 🔥 Calories | at or under target (never under a 1,200 floor) | at or over target |
 | 💪 Protein | at or over target | at or over target |
-| 💤 Sleep | 7h or more | 7h or more |
+| 😴 Sleep | 7h or more | 7h or more |
 | ⏰ Wake-up | up by 8:30 weekdays, 10:30 weekends (10 min grace) | same |
 
 - Fat and carbs are tracked and shown but not scored.
