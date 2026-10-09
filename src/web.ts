@@ -1140,7 +1140,7 @@ function sugarPanel(p: Player, players: Player[], meToken: string): string {
   const trackers = players.filter((x) => x.id !== p.id && x.sugar_target != null).map((x) => esc(x.name));
   const offer = trackers.length && !p.sugar_offered;
   return `<h2 id="sugar">Sugar</h2><div class="card${offer ? " offer" : ""}">
-    <p style="margin:0 0 10px">${offer ? `<strong>New:</strong> ${trackers.join(" and ")} added sugar tracking. ` : trackers.length ? `${trackers.join(" and ")} tracks this too. ` : ""}Track added (refined) vs natural sugar against a daily limit. Only you see it, and it isn't scored.</p>
+    <p style="margin:0 0 10px">${offer ? `<strong>New:</strong> ${trackers.join(" and ")} added sugar tracking. ` : ""}Track added (refined) vs natural sugar against a daily limit. Only you see it, and it isn't scored.</p>
     <form method="post" action="${action}" class="inline"><span class="muted">Added sugar limit</span>${limit(25)}<span class="muted">g</span><button class="pill" type="submit">Turn on</button>
     ${offer ? `<button class="pill" type="submit" name="sugar" value="dismiss">No thanks</button>` : ""}</form>
     <p class="rules">25g is the American Heart Association's limit for women, 36g for men.</p></div>`;
