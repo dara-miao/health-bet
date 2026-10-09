@@ -5,6 +5,7 @@ export type WorkoutKind = "gym" | "sport" | "run";
 export const WORKOUT_KINDS: WorkoutKind[] = ["gym", "sport", "run"];
 
 export interface Workout {
+  id?: number;
   day: string;
   kind: WorkoutKind;
   note: string | null;

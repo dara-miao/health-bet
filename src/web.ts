@@ -236,6 +236,19 @@ td.p4 { color: var(--ink); font-weight: 800; text-decoration: underline; text-de
 .meal .tot { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; margin-top: 2px; }
 .meal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; }
 .meal-head form, .day-head form { margin: 0; }
+.gym-log .seg { display: inline-flex; background: var(--raise); border-radius: 999px; padding: 3px; margin-bottom: 10px; }
+.gym-log .seg label { margin: 0; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.gym-log .seg input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+.gym-log .seg label:has(input:checked) { background: var(--surface); color: var(--ink); }
+.gym-log .kinds { display: flex; gap: 8px; flex-wrap: wrap; }
+.gym-log .kinds .pill { padding: 12px 18px; font-size: 15px; }
+.wlist { list-style: none; padding: 0; margin: 12px 0 0; }
+.wlist li { display: flex; justify-content: space-between; align-items: center; padding: 6px 2px; border-top: 1px solid var(--grid); font-size: 14px; }
+form.inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; }
+form.inline select, form.inline input { width: auto; padding: 6px 10px; border-radius: 10px; font-size: 14px; }
+form.inline input[type=number] { width: 70px; }
+form.inline .wk-line { flex-basis: 100%; }
+.card.offer { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
 .pill, .meal-head button, .day-head button { margin: 0; padding: 6px 14px; font: 600 13px/1 var(--sans); border-radius: 999px; border: 0; background: var(--raise); color: var(--ink); cursor: pointer; }
 .day-head button { background: var(--ink); color: var(--page); }
 .meal-head button:hover, .day-head button:hover { filter: brightness(1.15); }
@@ -1086,6 +1099,53 @@ document.querySelectorAll(".tips, .gym").forEach((card) => {
 });
 </script>`;
 
+// ---------- private page controls (work without the agent) ----------
+
+/** One-tap workout logging and the weekly goal, so Poke doesn't need the newer workout tools. */
+async function gymPanel(env: Env, p: Player, players: Player[], meToken: string, today: string): Promise<string> {
+  const g = await gymSummary(env, p, today);
+  const action = `/me/${esc(meToken)}/workout`;
+  const yesterday = addDays(today, -1);
+  const recent = g.workouts.filter((w) => w.day === today || w.day === yesterday).reverse();
+  const list = recent.length
+    ? `<ul class="wlist">${recent
+        .map(
+          (w) => `<li>${w.day === today ? "Today" : "Yesterday"} · ${KIND_LABEL[w.kind]}${w.note ? ` (${esc(w.note)})` : ""}
+          <form method="post" action="${action}"><input type="hidden" name="remove" value="${w.id}"><button class="pill" type="submit" aria-label="Remove">Undo</button></form></li>`,
+        )
+        .join("")}</ul>`
+    : "";
+  const goal = Array.from({ length: 7 }, (_, k) => `<option value="${k + 1}"${p.workout_target === k + 1 ? " selected" : ""}>${k + 1}</option>`).join("");
+  return `<h2 id="gym">Log a workout</h2><div class="card gym-log">
+    <form method="post" action="${action}">
+      <div class="seg" role="radiogroup" aria-label="Day"><label><input type="radio" name="day" value="today" checked> Today</label><label><input type="radio" name="day" value="yesterday"> Yesterday</label></div>
+      <div class="kinds"><button class="pill" name="kind" value="gym">🏋️ Gym</button><button class="pill" name="kind" value="sport">🎾 Sport</button><button class="pill" name="kind" value="run">🏃 Run</button></div>
+    </form>${list}
+    <form method="post" action="/me/${esc(meToken)}/settings" class="inline">
+      <span class="muted wk-line">This week: ${g.thisWeek}${p.workout_target ? ` of ${p.workout_target}` : ""}${g.streak ? ` · 🔥 ${g.streak}-week streak` : ""}</span><span class="muted">Weekly goal</span>
+      <select name="workout_target" aria-label="Weekly goal">${p.workout_target ? "" : '<option value="" selected>–</option>'}${goal}</select><button class="pill" type="submit">Save</button>
+    </form></div>`;
+}
+
+/** Turn sugar tracking on or off and set the added-sugar limit. Offers it once when the other player uses it. */
+function sugarPanel(p: Player, players: Player[], meToken: string): string {
+  const action = `/me/${esc(meToken)}/settings`;
+  const limit = (v: number) => `<input type="number" name="sugar_target" min="1" max="200" value="${v}" inputmode="numeric" aria-label="Added sugar limit in grams">`;
+  if (p.sugar_target != null) {
+    return `<h2 id="sugar">Sugar</h2><div class="card"><form method="post" action="${action}" class="inline">
+      <span class="muted">Added sugar limit</span>${limit(p.sugar_target)}<span class="muted">g a day</span><button class="pill" type="submit">Save</button>
+      <button class="pill" type="submit" name="sugar" value="off">Stop tracking</button></form>
+      <p class="rules">Private and not scored. 25g is the American Heart Association's limit for women, 36g for men.</p></div>`;
+  }
+  const trackers = players.filter((x) => x.id !== p.id && x.sugar_target != null).map((x) => esc(x.name));
+  const offer = trackers.length && !p.sugar_offered;
+  return `<h2 id="sugar">Sugar</h2><div class="card${offer ? " offer" : ""}">
+    <p style="margin:0 0 10px">${offer ? `<strong>New:</strong> ${trackers.join(" and ")} added sugar tracking. ` : trackers.length ? `${trackers.join(" and ")} tracks this too. ` : ""}Track added (refined) vs natural sugar against a daily limit. Only you see it, and it isn't scored.</p>
+    <form method="post" action="${action}" class="inline"><span class="muted">Added sugar limit</span>${limit(25)}<span class="muted">g</span><button class="pill" type="submit">Turn on</button>
+    ${offer ? `<button class="pill" type="submit" name="sugar" value="dismiss">No thanks</button>` : ""}</form>
+    <p class="rules">25g is the American Heart Association's limit for women, 36g for men.</p></div>`;
+}
+
 // ---------- scoreboard password (once per phone) ----------
 
 export function lockedPage(next: string, error = ""): Response {
@@ -1162,8 +1222,10 @@ export async function privatePage(env: Env, player: Player, meToken: string, now
     `${nav("me")}
     <p class="private-note">🔒 Only you can see this page. ${esc(others)} sees your points, calorie and protein totals, sleep, and wake-up, plus any meal you share. Don't share this link.</p>
     <div class="players">${playerCard(env, player, i, s, today, scoreDay(player, s, r, today).points, true)}</div>
+    ${await gymPanel(env, player, players, meToken, today)}
     ${dayHead("Today's food", today, todayMeals)}<div class="card">${list(todayMeals, "Nothing logged yet today. Text Poke what you ate.")}</div>
     ${dayHead("Yesterday", addDays(today, -1), yMeals)}<div class="card">${list(yMeals, "Nothing logged yesterday.")}</div>
+    ${sugarPanel(player, players, meToken)}
     <h2>Since ${prettyDay(start)}</h2>${hitRates(env, me, days, today)}
     <h2>Day by day</h2>${dayByDay(env, me, days, today, true)}
     <h2>Trends</h2>${trends(env, me, days, today, true, weights)}`,

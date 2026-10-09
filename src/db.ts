@@ -331,9 +331,13 @@ export async function deleteWorkout(db: D1Database, playerId: number, day: strin
   return r.meta.changes > 0;
 }
 
+export async function deleteWorkoutById(db: D1Database, playerId: number, id: number) {
+  await db.prepare("DELETE FROM workouts WHERE id = ? AND player_id = ?").bind(id, playerId).run();
+}
+
 export async function workoutsForPlayer(db: D1Database, playerId: number, from: string): Promise<Workout[]> {
   const { results } = await db
-    .prepare("SELECT day, kind, note FROM workouts WHERE player_id = ? AND day >= ? ORDER BY day, id")
+    .prepare("SELECT id, day, kind, note FROM workouts WHERE player_id = ? AND day >= ? ORDER BY day, id")
     .bind(playerId, from)
     .all<Workout>();
   return results;

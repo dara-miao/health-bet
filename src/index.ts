@@ -1,5 +1,6 @@
 import * as db from "./db";
-import type { Env } from "./db";
+import type { Env, Player } from "./db";
+import { WORKOUT_KINDS, type WorkoutKind } from "./gym";
 import { betStart, dayRecap, eveningNudge, weekVerdict } from "./game";
 import { handleMcp } from "./mcp";
 import { sendToPoke } from "./poke";
@@ -86,10 +87,14 @@ export default {
       return whoAreYouPage(await db.listPlayers(env.DB));
     }
 
-    const me = path.match(/^\/me\/([\w-]+)(\/share)?$/);
+    const me = path.match(/^\/me\/([\w-]+)(\/share|\/workout|\/settings)?$/);
     if (me) {
       const player = await db.playerByPrivateToken(env.DB, me[1]);
       if (!player) return new Response("Not found", { status: 404 });
+      if (me[2] && me[2] !== "/share" && request.method === "POST") {
+        const anchor = await handlePageAction(env, player, me[2], await request.formData(), new Date());
+        return new Response(null, { status: 303, headers: { location: `/me/${me[1]}#${anchor}` } });
+      }
       if (me[2] && request.method === "POST") {
         const form = await request.formData();
         const shared = form.get("shared") === "1";
@@ -111,6 +116,35 @@ export default {
     ctx.waitUntil(runSchedule(env, new Date()));
   },
 };
+
+/** Buttons on the private page: log or remove a workout, and goals Poke can't set without a reconnect. */
+async function handlePageAction(env: Env, player: Player, action: string, form: FormData, now: Date): Promise<string> {
+  const today = gameDay(now, env.GAME_TZ);
+  const field = (k: string) => String(form.get(k) ?? "").trim();
+  if (action === "/workout") {
+    if (field("remove")) {
+      await db.deleteWorkoutById(env.DB, player.id, Number(field("remove")));
+    } else {
+      const kind = field("kind") as WorkoutKind;
+      const day = field("day") === "yesterday" ? addDays(today, -1) : today;
+      if (WORKOUT_KINDS.includes(kind)) await db.saveWorkout(env.DB, player.id, { day, kind, note: field("note").slice(0, 60) || null });
+    }
+    return "gym";
+  }
+  // settings
+  if (form.has("workout_target")) {
+    const n = Math.round(Number(field("workout_target")));
+    if (n >= 1 && n <= 7) await db.setWorkoutTarget(env.DB, player.id, n);
+    return "gym";
+  }
+  if (field("sugar") === "off") await db.setSugarTarget(env.DB, player.id, null);
+  else if (field("sugar") === "dismiss") await db.markSugarOffered(env.DB, player.id);
+  else if (form.has("sugar_target")) {
+    const n = Math.round(Number(field("sugar_target")));
+    if (n >= 1 && n <= 200) await db.setSugarTarget(env.DB, player.id, n);
+  }
+  return "sugar";
+}
 
 function randomToken(bytes: number): string {
   const buf = crypto.getRandomValues(new Uint8Array(bytes));

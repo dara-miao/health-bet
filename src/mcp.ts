@@ -212,6 +212,19 @@ function time(env: Env, iso: unknown, now: Date): Date {
   return t;
 }
 
+const SUGAR_TAG = /\s*[\[(]\s*sugar\s*:?\s*(\d+(?:\.\d+)?)\s*g?\s*(?:[,;/·]\s*(?:added\s*:?\s*)?(\d+(?:\.\d+)?)\s*g?\s*(?:added)?)?\s*[\])]/i;
+
+/** "1 cup vanilla yogurt [sugar 16g, 9g added]" -> the description without the tag, plus the numbers. */
+export function parseSugarTag(description: string): { description: string; sugar_g: number | null; added_sugar_g: number | null } {
+  const m = description.match(SUGAR_TAG);
+  if (!m) return { description, sugar_g: null, added_sugar_g: null };
+  return {
+    description: description.replace(SUGAR_TAG, "").trim(),
+    sugar_g: Number(m[1]),
+    added_sugar_g: m[2] != null ? Number(m[2]) : null,
+  };
+}
+
 function items(raw: unknown): FoodItem[] {
   if (!Array.isArray(raw) || raw.length === 0) throw new ToolError("items must be a non-empty list.");
   return raw.map((it) => {
@@ -225,7 +238,14 @@ function items(raw: unknown): FoodItem[] {
       const n = Number(it?.[k]);
       return it?.[k] == null || !Number.isFinite(n) || n < 0 ? null : n;
     };
-    return { description: it.description.slice(0, 200), calories, protein_g, fat_g, carbs_g, sugar_g: opt("sugar_g"), added_sugar_g: opt("added_sugar_g") };
+    // Agents with a tool list from before the sugar fields send sugar as a tag in the description instead.
+    const tag = parseSugarTag(it.description);
+    return {
+      description: tag.description.slice(0, 200),
+      calories, protein_g, fat_g, carbs_g,
+      sugar_g: opt("sugar_g") ?? tag.sugar_g,
+      added_sugar_g: opt("added_sugar_g") ?? tag.added_sugar_g,
+    };
   });
 }
 
@@ -267,14 +287,19 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
         ...added.map((e) => `  item ${e.id}: ${e.description}: ${e.calories} cal, ${e.protein_g}g P, ${e.fat_g}g F, ${e.carbs_g}g C`),
         `  Added: ${t.calories} cal, ${t.protein}g protein, ${t.fat}g fat, ${t.carbs}g carbs`,
         await totalsLine(env, player, day),
-      ].join("\n");
+        missingSugar(player, added),
+      ].filter(Boolean).join("\n");
     }
 
     case "edit_food": {
       const [item] = items([args]);
       const updated = await db.updateFood(env.DB, player.id, Number(args.item_id), item);
       if (!updated) throw new ToolError(`No item ${args.item_id} for ${player.name}. Call get_status for ids.`);
-      return `Updated item ${updated.id}: ${updated.description}: ${updated.calories} cal, ${updated.protein_g}g P, ${updated.fat_g}g F, ${updated.carbs_g}g C\n${await totalsLine(env, player, updated.day)}`;
+      return [
+        `Updated item ${updated.id}: ${updated.description}: ${updated.calories} cal, ${updated.protein_g}g P, ${updated.fat_g}g F, ${updated.carbs_g}g C`,
+        await totalsLine(env, player, updated.day),
+        missingSugar(player, [updated]),
+      ].filter(Boolean).join("\n");
     }
 
     case "delete_food": {
@@ -387,17 +412,39 @@ async function callTool(env: Env, player: Player, name: string, args: Args, now:
   }
 }
 
+const TAG_HOW = `put it in the item's description as a tag, e.g. "1 cup vanilla Greek yogurt [sugar 16g, 9g added]": total sugar, then the added part (sweets, sweetened drinks, flavored yogurt, granola, sauces, honey, syrup). Sugar in whole fruit, plain milk and plain yogurt is natural, so "[sugar 14g, 0g added]" for a banana. The app reads the tag and removes it from the name`;
+
+/** If a sugar tracker's items came in without sugar, ask the agent to re-save them with the tag. */
+function missingSugar(player: Player, saved: { id: number; sugar_g: number | null }[]): string {
+  if (player.sugar_target == null) return "";
+  const ids = saved.filter((e) => e.sugar_g == null).map((e) => e.id);
+  if (!ids.length) return "";
+  return `Missing sugar on item${ids.length > 1 ? "s" : ""} ${ids.join(", ")}: ${player.name} tracks sugar. Re-save ${ids.length > 1 ? "each" : "it"} with edit_food (same numbers) and ${TAG_HOW}. Do this from now on for every item you log for them.`;
+}
+
 /**
- * Once another player turns on sugar tracking, the next tool result for a player who hasn't decided
- * asks their agent to offer it to them. Asked once.
+ * Notes for the agent about features its saved tool list may not include, so nobody has to reconnect
+ * the integration. Shown on get_status, and on the first other tool call each day.
  */
-async function sugarOffer(env: Env, player: Player, tool: string): Promise<string> {
-  if (tool === "set_sugar_goal" || player.sugar_target != null || player.sugar_offered) return "";
-  const trackers = (await db.listPlayers(env.DB)).filter((p) => p.id !== player.id && p.sugar_target != null);
-  if (!trackers.length) return "";
-  await db.markSugarOffered(env.DB, player.id);
-  const who = trackers.map((p) => p.name).join(" and ");
-  return `\n\nNew (tell ${player.name} once, after answering): ${who} added sugar as a tracking category. It splits sugar into added (refined) vs natural, shows only on each person's own private page (nobody else sees it), and isn't scored. Ask if they want it on their page too. If yes, call set_sugar_goal (suggest 36g added sugar a day for men or 25g for women, the American Heart Association limits, unless they pick a number).`;
+async function agentNotes(env: Env, player: Player, tool: string, origin: string, today: string): Promise<string> {
+  const once = tool !== "get_status" && !(await db.firstTime(env.DB, `notes:${player.id}:${today}`));
+  if (once) return "";
+  const page = `${origin}/me/${await db.privateToken(env.DB, player.id)}`;
+  const notes = [
+    `Workouts: if you don't have a log_workout tool, ${player.name} logs workouts with one tap on their page. When they mention a workout (gym, a sport, a run), reply with this link: ${page}#gym`,
+  ];
+  if (player.sugar_target != null) {
+    notes.push(`Sugar: ${player.name} tracks added vs natural sugar (limit ${player.sugar_target}g added). If your log_food items have no sugar_g field, ${TAG_HOW}.`);
+  } else if (!player.sugar_offered) {
+    const trackers = (await db.listPlayers(env.DB)).filter((p) => p.id !== player.id && p.sugar_target != null);
+    if (trackers.length) {
+      await db.markSugarOffered(env.DB, player.id);
+      notes.push(
+        `New, tell ${player.name} once after answering: ${trackers.map((p) => p.name).join(" and ")} added sugar as a tracking category. It splits sugar into added (refined) vs natural, shows only on each person's own private page (nobody else sees it), and isn't scored. Ask if they want it on their page too; they can turn it on there: ${page}#sugar`,
+      );
+    }
+  }
+  return `\n\nNotes for you (the agent), not for the player:\n${notes.map((n) => `- ${n}`).join("\n")}`;
 }
 
 interface RpcRequest {
@@ -431,7 +478,8 @@ async function handleRpc(env: Env, player: Player, req: RpcRequest, origin: stri
       try {
         // Re-read the player so goals and pending bedtime are current.
         const fresh = (await db.getPlayer(env.DB, player.id))!;
-        const text = (await callTool(env, fresh, name, args ?? {}, new Date(), origin)) + (await sugarOffer(env, fresh, name));
+        const now = new Date();
+        const text = (await callTool(env, fresh, name, args ?? {}, now, origin)) + (await agentNotes(env, fresh, name, origin, gameDay(now, env.GAME_TZ)));
         return reply({ content: [{ type: "text", text }] });
       } catch (err) {
         if (err instanceof UserError) {

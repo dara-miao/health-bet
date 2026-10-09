@@ -104,6 +104,7 @@ Some details that took more than one try:
 
 - **Agents and time zones.** LLMs often send ISO timestamps without an offset, or today's date in UTC (already tomorrow in California at 9pm). Offset-less times are read as wall-clock time in the game's time zone, including across DST changes. Future dates are clamped to the current game day instead of rejecting a meal.
 - **A 4am game day.** Food uses a "game day" that rolls over at 4am. Sleep belongs to the calendar day you wake up. Both are pure functions with unit tests.
+- **Shipping features without a reconnect.** MCP clients cache the tool list, and a stateless server can't push `tools/list_changed`. New features therefore degrade gracefully: tool results carry short notes for the agent, sugar rides along as a tag in the item description (`"vanilla yogurt [sugar 16g, 9g added]"`, parsed and stripped server-side), and anything else gets a one-tap control on the player's private page.
 - **Exactly-once scheduled messages.** The hourly cron dedupes on keys like `recap:2026-09-30`, so a retried or overlapping run never double-texts anyone.
 - **One-time secrets.** Your personal key is shown once. The join form uses post/redirect/get with a short-lived HttpOnly cookie, so refreshing can't silently rotate your key. Keys are stored as SHA-256 hashes.
 - **Remembered devices, no logins.** The site sits behind one shared password, entered once per phone and remembered with a year-long HttpOnly cookie. "My page" asks you to tap your name the first time, then goes straight to your private page after that.
