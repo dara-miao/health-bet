@@ -10,6 +10,8 @@ export interface Env {
   WAKE_WEEKDAY: string; // "08:30"
   WAKE_WEEKEND: string; // "10:30"
   WAKE_GRACE_MINUTES: string;
+  CALORIE_GRACE?: string;
+  PROTEIN_GRACE_G?: string;
   BREAK_DAYS?: string; // "2026-10-08,2026-10-09" or ranges "2026-11-25..2026-11-29"
   JOIN_CODE: string;
   POKE_API_URL?: string; // override for local testing
@@ -40,6 +42,8 @@ export function rules(env: Env): Rules {
     wakeWeekend: clock(env.WAKE_WEEKEND),
     wakeGraceMinutes: Number(env.WAKE_GRACE_MINUTES),
     breakDays: breakDays(env.BREAK_DAYS),
+    calorieGrace: Number(env.CALORIE_GRACE ?? 50),
+    proteinGrace: Number(env.PROTEIN_GRACE_G ?? 5),
   };
 }
 

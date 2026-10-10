@@ -16,6 +16,9 @@ WAKE_GRACE_MINUTES = "10"
 BREAK_DAYS = "2026-10-08..2026-10-09"
 # A cut day under this many calories never earns the calorie point.
 CUT_FLOOR_CALORIES = "1200"
+# Food estimates aren't exact: calories this far past the target and protein this far short still count.
+CALORIE_GRACE = "50"
+PROTEIN_GRACE_G = "5"
 
 [[d1_databases]]
 binding = "DB"

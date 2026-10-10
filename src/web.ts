@@ -610,7 +610,7 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, to
     const gap = Math.abs(p.calorie_target - s.calories);
     let st = '<span class="muted">Nothing logged</span>';
     if (s.foodCount > 0) {
-      if (cut && s.calories > p.calorie_target) st = `<span class="bad">${fmt(gap)} over</span>`;
+      if (cut && s.calories > p.calorie_target) st = ok ? `<span class="ok">Within grace</span> · ${fmt(gap)} over` : `<span class="bad">${fmt(gap)} over</span>`;
       else if (cut) st = ok ? `<span class="ok">On target</span> · ${fmt(gap)} left` : `${fmt(gap)} left`;
       else st = ok ? `<span class="ok">Hit</span>` : `${fmt(gap)} to go`;
       if (s.unitemized) st = `<span class="bad">Total with no foods · not counted</span>`;
@@ -618,7 +618,7 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, to
     tiles.push(stat(`Calories · ${cut ? "max" : "min"} ${fmt(p.calorie_target)}`, fmt(s.calories), st));
   }
   if (p.protein_target != null) {
-    const ok = proteinGoalMet(p, s);
+    const ok = proteinGoalMet(p, s, r);
     tiles.push(stat(`Protein · min ${p.protein_target}g`, `${s.protein}<small>g</small>`, s.unitemized ? '<span class="bad">Not counted</span>' : ok ? '<span class="ok">Hit</span>' : `${Math.max(0, p.protein_target - s.protein)}g to go`));
   }
   if (full) {
@@ -715,7 +715,7 @@ export async function boardPage(env: Env, now: Date): Promise<Response> {
     <div class="faces">${hero || '<div class="card">No players yet.</div>'}</div>${banner}
     <h2>Today</h2><div class="players">${cards}</div>
     <h2>This week</h2><div class="card table-wrap"><table class="wk"><thead><tr><th>Player</th>${dayHeads}<th class="n">Total</th></tr></thead><tbody>${weekRows}</tbody></table>
-      <p class="rules">1 point each for calories, protein, ${prettyDuration(r.sleepTargetMinutes)}+ sleep, and being up by ${prettyClock(r.wakeWeekday)} (weekends ${prettyClock(r.wakeWeekend)}, ${r.wakeGraceMinutes} min grace). Lowest weekly total loses.</p></div>
+      <p class="rules">1 point each for calories, protein, ${prettyDuration(r.sleepTargetMinutes)}+ sleep, and being up by ${prettyClock(r.wakeWeekday)} (weekends ${prettyClock(r.wakeWeekend)}, ${r.wakeGraceMinutes} min grace). Calories get ${r.calorieGrace} cal of grace and protein ${r.proteinGrace}g. Lowest weekly total loses.</p></div>
     <h2>Gym this week</h2>${await gymWeekCard(env, players, board.days, today)}
     <h2>Shared meals today</h2><div class="card">${sharedHtml || '<p class="muted" style="margin:0">Nobody has shared a meal today. Meals are private until you share one from your page or tell Poke "share my lunch".</p>'}</div>
     ${sharedYesterday ? `<h2>Shared yesterday</h2><div class="card">${sharedYesterday}</div>` : ""}
@@ -1070,7 +1070,7 @@ function trends(env: Env, series: Series[], days: string[], today: string, full:
     {
       title: "💪 Protein",
       goal: (p) => (p.protein_target == null ? "no goal" : `reach ${p.protein_target}g`),
-      chart: (x) => barChart(bars(x, (s) => food(s, s.protein), (s) => x.p.protein_target != null && s.protein >= x.p.protein_target, (_, v) => `${v}g protein`), seriesVar(x.i), () => x.p.protein_target, { h, goal: { dir: "min", label: `${x.p.protein_target}g` } }),
+      chart: (x) => barChart(bars(x, (s) => food(s, s.protein), (s) => proteinGoalMet(x.p, s, r), (_, v) => `${v}g protein`), seriesVar(x.i), () => x.p.protein_target, { h, goal: { dir: "min", label: `${x.p.protein_target}g` } }),
     },
     ...(full
       ? [

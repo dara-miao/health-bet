@@ -28,6 +28,8 @@ export interface Rules {
   wakeWeekday: number; // minutes after midnight, e.g. 510 = 8:30am
   wakeWeekend: number;
   wakeGraceMinutes: number;
+  calorieGrace?: number; // calories past the target that still count (estimates aren't that precise)
+  proteinGrace?: number; // grams short of the protein target that still count
   breakDays?: Set<string>; // school breaks and holidays: weekday dates that use the weekend wake time
 }
 
@@ -56,14 +58,15 @@ export interface DayScore {
 
 export function calorieGoalMet(goal: Goal, stats: DayStats, rules: Rules): boolean {
   if (stats.foodCount === 0 || stats.unitemized || goal.goal_type == null || goal.calorie_target == null) return false;
+  const grace = rules.calorieGrace ?? 0;
   return goal.goal_type === "cut"
-    ? stats.calories <= goal.calorie_target && stats.calories >= rules.cutFloorCalories
-    : stats.calories >= goal.calorie_target;
+    ? stats.calories <= goal.calorie_target + grace && stats.calories >= rules.cutFloorCalories
+    : stats.calories >= goal.calorie_target - grace;
 }
 
-export function proteinGoalMet(goal: Goal, stats: DayStats): boolean {
+export function proteinGoalMet(goal: Goal, stats: DayStats, rules?: Rules): boolean {
   if (stats.foodCount === 0 || stats.unitemized || goal.protein_target == null) return false;
-  return stats.protein >= goal.protein_target;
+  return stats.protein >= goal.protein_target - (rules?.proteinGrace ?? 0);
 }
 
 /**
@@ -97,7 +100,7 @@ export function wakeGoalMet(day: string, stats: DayStats, rules: Rules): boolean
 
 export function scoreDay(goal: Goal, stats: DayStats, rules: Rules, day: string): DayScore {
   const calOk = calorieGoalMet(goal, stats, rules);
-  const proteinOk = proteinGoalMet(goal, stats);
+  const proteinOk = proteinGoalMet(goal, stats, rules);
   const sleepOk = sleepGoalMet(stats, rules);
   const wakeOk = wakeGoalMet(day, stats, rules);
   return { calOk, proteinOk, sleepOk, wakeOk, points: +calOk + +proteinOk + +sleepOk + +wakeOk };

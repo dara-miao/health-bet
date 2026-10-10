@@ -96,7 +96,7 @@ export function statusLines(env: Env, p: Player, s: DayStats, day: string, opts:
     let note = "";
     if (s.foodCount === 0) note = " (nothing logged)";
     else if (s.unitemized) note = " (includes a total with no foods, so calories and protein don't count)";
-    else if (p.goal_type === "cut" && s.calories > p.calorie_target) note = ` (${(s.calories - p.calorie_target).toLocaleString()} over)`;
+    else if (p.goal_type === "cut" && s.calories > p.calorie_target) note = ` (${(s.calories - p.calorie_target).toLocaleString()} over${ok ? `, within the ${r.calorieGrace} cal grace` : ""})`;
     else if (underFloor && final) note = ` (under the ${r.cutFloorCalories.toLocaleString()} floor)`;
     else if (p.goal_type === "cut") note = ` (${(p.calorie_target - s.calories).toLocaleString()} left)`;
     else if (!ok) note = ` (${(p.calorie_target - s.calories).toLocaleString()} to go)`;
@@ -106,7 +106,7 @@ export function statusLines(env: Env, p: Player, s: DayStats, day: string, opts:
     lines.push(`🔥 ${s.calories.toLocaleString()} cal`);
   }
   if (p.protein_target != null) {
-    const ok = proteinGoalMet(p, s);
+    const ok = proteinGoalMet(p, s, r);
     lines.push(`💪 ${s.protein}g / ${p.protein_target}g protein ${ok ? "✅" : s.unitemized ? "❌ (doesn't count)" : `❌ (${Math.max(0, p.protein_target - s.protein)}g to go)`}`);
   } else {
     lines.push(`💪 ${s.protein}g protein`);

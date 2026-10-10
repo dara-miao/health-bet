@@ -57,6 +57,7 @@ Each day, each player can earn up to **4 points**:
 | 😴 Sleep | 7h or more | 7h or more |
 | ⏰ Wake-up | up by 8:30 weekdays, 10:30 weekends (10 min grace) | same |
 
+- Food estimates aren't exact, so calories get 50 cal of grace past the target and protein 5g short of it (`CALORIE_GRACE`, `PROTEIN_GRACE_G`).
 - Fat and carbs are tracked and shown but not scored.
 - **Sugar (opt-in, private):** the agent estimates total and added sugar for every item, so each player can track added (refined) vs natural sugar against their own daily limit. When one player turns it on, the other's agent offers it to them once.
 - **Gym consistency is tracked on the side, not scored:** this week's workout days (gym, sport, or run) on the scoreboard, a GitHub-style grid of every week on the history page, darker on days with two or more, and a streak of weeks that hit each player's own weekly goal.

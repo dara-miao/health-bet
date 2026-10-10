@@ -110,3 +110,20 @@ describe("bare totals", () => {
     expect(calorieGoalMet(mal, { ...s, unitemized: 1 }, r) || proteinGoalMet(mal, { ...s, unitemized: 1 })).toBe(false);
   });
 });
+
+describe("calorie and protein grace", () => {
+  it("lets estimates land a little past the goal", async () => {
+    const { calorieGoalMet, proteinGoalMet } = await import("../src/scoring");
+    const r = { tz: "America/Los_Angeles", sleepTargetMinutes: 420, cutFloorCalories: 1200, wakeWeekday: 510, wakeWeekend: 630, wakeGraceMinutes: 10, calorieGrace: 50, proteinGrace: 5 };
+    const day = (calories: number, protein = 0) => ({ calories, protein, fat: 0, carbs: 0, foodCount: 3, sleepMinutes: null, wakeAt: null });
+    const cut = { goal_type: "cut" as const, calorie_target: 1700, protein_target: 120 };
+    const bulk = { goal_type: "bulk" as const, calorie_target: 3000, protein_target: 155 };
+    expect(calorieGoalMet(cut, day(1701), r)).toBe(true);
+    expect(calorieGoalMet(cut, day(1750), r)).toBe(true);
+    expect(calorieGoalMet(cut, day(1751), r)).toBe(false);
+    expect(calorieGoalMet(bulk, day(2950), r)).toBe(true);
+    expect(calorieGoalMet(bulk, day(2949), r)).toBe(false);
+    expect(proteinGoalMet(cut, day(1500, 115), r)).toBe(true);
+    expect(proteinGoalMet(cut, day(1500, 114), r)).toBe(false);
+  });
+});
