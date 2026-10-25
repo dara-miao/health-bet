@@ -13,7 +13,7 @@ export function esc(s: unknown): string {
 
 const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
 
-// Player colors: pink (Dara) and green (Mal), validated against both theme surfaces.
+// Player colors: pink (player 1) and green (player 2), validated against both theme surfaces.
 const SERIES = ["--series-1", "--series-2"];
 const seriesVar = (i: number) => `var(${SERIES[i % SERIES.length]})`;
 

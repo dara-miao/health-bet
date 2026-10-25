@@ -13,6 +13,25 @@ No calorie-counting app, no forms, no barcode scanning. Just texts like these:
 
 Built for my friend and me: I'm cutting, he's bulking, and we both want more sleep.
 
+## Screenshots
+
+<p>
+  <img src="docs/screenshots/scoreboard.png" width="32%" alt="Scoreboard: each player's weekly points as a ring, with today's calories, protein, sleep, and wake-up">
+  <img src="docs/screenshots/weeks-and-goals.png" width="32%" alt="History: weekly totals with the winner, and how often each goal was hit">
+  <img src="docs/screenshots/day-by-day.png" width="32%" alt="Day by day: four goal icons per player, tap a day for the numbers">
+</p>
+
+![Trend charts in the ocean theme: daily calories, protein, sleep, and wake-up for both players, with the goal line on each](docs/screenshots/trends-ocean.png)
+
+<p>
+  <img src="docs/screenshots/private-today.png" width="49%" alt="Private page: today's numbers including fat, carbs, and sugar">
+  <img src="docs/screenshots/gym-grid.png" width="49%" alt="Gym consistency: a GitHub-style grid of workouts per player, with streaks">
+</p>
+
+![Private trend charts in the black theme: calories, protein, fat, carbs, sleep, wake-up, sugar, and weight](docs/screenshots/private-trends-black.png)
+
+<sub>Screenshots use generated demo data.</sub>
+
 ---
 
 ## How it works
@@ -21,7 +40,7 @@ Built for my friend and me: I'm cutting, he's bulking, and we both want more sle
 flowchart LR
   subgraph phone["iMessage"]
     me["Me"]
-    mal["Friend"]
+    friend["Friend"]
   end
   poke["Poke<br/>(LLM agent, one per player)"]
   subgraph cf["Cloudflare"]
@@ -32,7 +51,7 @@ flowchart LR
   web["Scoreboard<br/>(browser)"]
 
   me -- texts --> poke
-  mal -- texts --> poke
+  friend -- texts --> poke
   poke -- "MCP tool calls<br/>(JSON-RPC over HTTPS,<br/>per-player bearer key)" --> worker
   worker <--> d1
   cron --> worker
