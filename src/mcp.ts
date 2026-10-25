@@ -80,7 +80,7 @@ Meals: leave meal_id null to start a new meal. Pass an existing meal_id (from ge
   {
     name: "share_meal",
     description:
-      "Share the player's meals with the other players (they'll see the foods, calories and protein on the scoreboard), or unshare them. Only when the player asks: 'share my dinner with Mal' (one meal_id) or 'share all my meals today' (all_day).",
+      "Share the player's meals with the other players (they'll see the foods, calories and protein on the scoreboard), or unshare them. Only when the player asks: 'share my dinner' (one meal_id) or 'share all my meals today' (all_day).",
     inputSchema: {
       type: "object",
       properties: {

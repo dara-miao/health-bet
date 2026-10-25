@@ -103,11 +103,11 @@ describe("bare totals", () => {
   });
   it("cost the calorie and protein points", async () => {
     const { calorieGoalMet, proteinGoalMet } = await import("../src/scoring");
-    const mal = { goal_type: "bulk" as const, calorie_target: 3000, protein_target: 155 };
+    const bulker = { goal_type: "bulk" as const, calorie_target: 3000, protein_target: 155 };
     const s = { calories: 3000, protein: 155, fat: 0, carbs: 0, foodCount: 2, sleepMinutes: null, wakeAt: null };
     const r = { tz: "America/Los_Angeles", sleepTargetMinutes: 420, cutFloorCalories: 1200, wakeWeekday: 510, wakeWeekend: 630, wakeGraceMinutes: 10 };
-    expect(calorieGoalMet(mal, s, r) && proteinGoalMet(mal, s)).toBe(true);
-    expect(calorieGoalMet(mal, { ...s, unitemized: 1 }, r) || proteinGoalMet(mal, { ...s, unitemized: 1 })).toBe(false);
+    expect(calorieGoalMet(bulker, s, r) && proteinGoalMet(bulker, s)).toBe(true);
+    expect(calorieGoalMet(bulker, { ...s, unitemized: 1 }, r) || proteinGoalMet(bulker, { ...s, unitemized: 1 })).toBe(false);
   });
 });
 
