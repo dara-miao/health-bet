@@ -69,7 +69,6 @@ export function goalLine(p: Player, shared = false): string {
         p.fat_target != null && `fat at least ${p.fat_target}g`,
         p.carb_target != null && `carbs about ${p.carb_target}g`,
         p.sugar_target != null && `added sugar at most ${p.sugar_target}g`,
-        p.sodium_target != null && `sodium at most ${p.sodium_target.toLocaleString()}mg`,
       ].filter(Boolean);
   const unscored = extras.length ? `, ${extras.join(", ")} (not scored)` : "";
   return `${p.goal_type}: ${cmp} ${p.calorie_target.toLocaleString()} cal, protein at least ${p.protein_target}g${unscored}`;
@@ -116,7 +115,6 @@ export function statusLines(env: Env, p: Player, s: DayStats, day: string, opts:
   const carbs = p.carb_target != null ? `${s.carbs}g / ~${p.carb_target}g carbs` : `${s.carbs}g carbs`;
   if (!shared) lines.push(`🥑 ${fat} · 🍞 ${carbs}`);
   if (!shared && p.sugar_target != null) lines.push(sugarLine(p, s));
-  if (!shared && p.sodium_target != null) lines.push(sodiumLine(p, s));
   lines.push(
     s.sleepMinutes != null
       ? `😴 ${prettyDuration(s.sleepMinutes)} sleep ${sleepGoalMet(s, r) ? "✅" : "❌"}`
@@ -279,18 +277,6 @@ export function sugarLine(p: Player, s: DayStats): string {
   return `🍬 ${s.sugar}g sugar: ${added}g added / ${p.sugar_target}g max${over ? " (over)" : ""}, ${s.sugar - added}g natural`;
 }
 
-/** The National Academies' chronic disease risk line for sodium (ages 14+): above this, cut back. */
-export const SODIUM_RISK_MG = 2300;
-
-/** Private: sodium against the player's daily limit, and a separate flag past the risk line. */
-export function sodiumLine(p: Player, s: DayStats): string {
-  const max = (p.sodium_target ?? 0).toLocaleString();
-  if (s.sodium == null) return `🧂 no sodium estimates yet today (max ${max}mg)`;
-  const over = p.sodium_target != null && s.sodium > p.sodium_target;
-  const risk = s.sodium > SODIUM_RISK_MG ? `, past the ${SODIUM_RISK_MG.toLocaleString()}mg risk line` : "";
-  return `🧂 ${s.sodium.toLocaleString()}mg / ${max}mg sodium${over ? ` (over${risk})` : ""}`;
-}
-
 /** Short version for the end of tool results. */
 export async function totalsLine(env: Env, player: Player, day: string): Promise<string> {
   return `${player.name}'s totals for ${prettyDay(day)}: ${statusLines(env, player, await dayStats(env, player.id, day), day).join(" | ")}`;
@@ -340,9 +326,6 @@ export async function eveningNudge(env: Env, player: Player, day: string): Promi
   }
   if (player.sugar_target != null && (s.addedSugar ?? 0) > player.sugar_target) {
     lines.push(`Added sugar is over today (${s.addedSugar}g of ${player.sugar_target}g). Fruit or plain yogurt if you want something sweet; their sugar is natural.`);
-  }
-  if (player.sodium_target != null && (s.sodium ?? 0) > player.sodium_target) {
-    lines.push(`Sodium is over today (${s.sodium!.toLocaleString()}mg of ${player.sodium_target.toLocaleString()}mg). Drink extra water, and go easy on sauces, deli meat, and chips tonight.`);
   }
   if (player.carb_target != null && s.carbs < MIN_CARBS) {
     lines.push(`Carbs are low (${s.carbs}g; aim for about ${player.carb_target}g, and at least ${MIN_CARBS}g). Rice, oats, fruit, or potatoes would help.`);
