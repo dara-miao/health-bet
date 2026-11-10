@@ -279,12 +279,16 @@ export function sugarLine(p: Player, s: DayStats): string {
   return `🍬 ${s.sugar}g sugar: ${added}g added / ${p.sugar_target}g max${over ? " (over)" : ""}, ${s.sugar - added}g natural`;
 }
 
-/** Private: sodium against the player's daily limit. */
+/** The National Academies' chronic disease risk line for sodium (ages 14+): above this, cut back. */
+export const SODIUM_RISK_MG = 2300;
+
+/** Private: sodium against the player's daily limit, and a separate flag past the risk line. */
 export function sodiumLine(p: Player, s: DayStats): string {
   const max = (p.sodium_target ?? 0).toLocaleString();
   if (s.sodium == null) return `🧂 no sodium estimates yet today (max ${max}mg)`;
   const over = p.sodium_target != null && s.sodium > p.sodium_target;
-  return `🧂 ${s.sodium.toLocaleString()}mg / ${max}mg sodium${over ? " (over)" : ""}`;
+  const risk = s.sodium > SODIUM_RISK_MG ? `, past the ${SODIUM_RISK_MG.toLocaleString()}mg risk line` : "";
+  return `🧂 ${s.sodium.toLocaleString()}mg / ${max}mg sodium${over ? ` (over${risk})` : ""}`;
 }
 
 /** Short version for the end of tool results. */

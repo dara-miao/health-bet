@@ -54,8 +54,13 @@ describe("sugar", () => {
 
 describe("sodium", () => {
   const tracking = { ...dara, sodium_target: 2300 };
+  it("flags the 2,300mg risk line separately from a lower limit", () => {
+    const low = { ...dara, sodium_target: 1500 };
+    expect(sodiumLine(low, { ...stats(1500), sodium: 1900 })).toBe("🧂 1,900mg / 1,500mg sodium (over)");
+    expect(sodiumLine(low, { ...stats(1500), sodium: 2650 })).toBe("🧂 2,650mg / 1,500mg sodium (over, past the 2,300mg risk line)");
+  });
   it("shows the total against the limit", () => {
-    expect(sodiumLine(tracking, { ...stats(1500), sodium: 2650 })).toBe("🧂 2,650mg / 2,300mg sodium (over)");
+    expect(sodiumLine(tracking, { ...stats(1500), sodium: 2650 })).toBe("🧂 2,650mg / 2,300mg sodium (over, past the 2,300mg risk line)");
     expect(sodiumLine(tracking, { ...stats(1500), sodium: 1200 })).toBe("🧂 1,200mg / 2,300mg sodium");
     expect(sodiumLine(tracking, stats(1500))).toBe("🧂 no sodium estimates yet today (max 2,300mg)");
   });

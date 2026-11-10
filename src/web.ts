@@ -2,7 +2,7 @@
 // small inline script from JSON embedded in the page.
 import * as db from "./db";
 import type { Env, Player } from "./db";
-import { betStart, dayStats, gymSummary, mealTotals, weekBoard, weekWinner, type GymSummary } from "./game";
+import { SODIUM_RISK_MG, betStart, dayStats, gymSummary, mealTotals, weekBoard, weekWinner, type GymSummary } from "./game";
 import { EMPTY_DAY, calorieGoalMet, proteinGoalMet, scoreDay, wakeGoalMet, wakeMinutes, wakeTarget, type DayStats } from "./scoring";
 import type { Workout } from "./gym";
 import { addDays, gameDay, prettyClock, prettyDay, prettyDuration, prettyTime, weekDays, weekStart } from "./time";
@@ -639,7 +639,7 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, to
     full && p.sodium_target != null
       ? (() => {
           const max = p.sodium_target;
-          const st = s.sodium == null ? "No estimates yet" : `${s.sodium > max ? `<span class="bad">${fmt(s.sodium - max)}mg over</span>` : `${fmt(max - s.sodium)}mg left`} · not scored`;
+          const st = s.sodium == null ? "No estimates yet" : `${s.sodium > max ? `<span class="bad">${fmt(s.sodium - max)}mg over${s.sodium > SODIUM_RISK_MG ? `, past the ${fmt(SODIUM_RISK_MG)}mg risk line` : ""}</span>` : `${fmt(max - s.sodium)}mg left`} · not scored`;
           return `<div class="stat wide"><div class="k">Sodium · max ${fmt(max)}mg</div><div class="v">${s.sodium == null ? "–" : `${fmt(s.sodium)}<small>mg</small>`}</div><div class="s">${st}</div></div>`;
         })()
       : "";
@@ -1134,7 +1134,7 @@ function trends(env: Env, series: Series[], days: string[], today: string, full:
     const x = series[0];
     const max = x.p.sodium_target;
     if (!full || max == null) return "";
-    const chart = barChart(bars(x, (s) => s.sodium ?? null, (s) => (s.sodium ?? 0) <= max, (_, v) => `${fmt(v)}mg sodium${v > max ? " (over)" : ""}`), seriesVar(x.i), () => max, { h, goal: { dir: "max", label: `${fmt(max)}mg` } });
+    const chart = barChart(bars(x, (s) => s.sodium ?? null, (s) => (s.sodium ?? 0) <= max, (_, v) => `${fmt(v)}mg sodium${v > SODIUM_RISK_MG ? ` (past the ${fmt(SODIUM_RISK_MG)}mg risk line)` : v > max ? " (over)" : ""}`), seriesVar(x.i), () => max, { h, goal: { dir: "max", label: `${fmt(max)}mg` } });
     return `<div class="card tcard tips"><h3>🧂 Sodium <span class="muted">· private</span></h3><div class="tcols n1"><div class="tcol" style="--gc:${seriesVar(x.i)}">
       <div class="tlabel"><span class="muted">stay under ${fmt(max)}mg · not scored</span></div>${chart}${axis}</div></div><p class="tip-out" aria-live="polite"></p></div>`;
   })();
@@ -1209,7 +1209,7 @@ function sugarPanel(p: Player, players: Player[], meToken: string): string {
 function sodiumPanel(p: Player, meToken: string): string {
   const action = `/me/${esc(meToken)}/settings`;
   const limit = (v: number) => `<input type="number" name="sodium_target" min="500" max="10000" step="50" value="${v}" inputmode="numeric" aria-label="Sodium limit in milligrams">`;
-  const why = "2,300mg is the US Dietary Guidelines limit for anyone 14 and up; 1,500mg is the American Heart Association's ideal.";
+  const why = "1,500mg is the ideal (National Academies, American Heart Association). 2,300mg is the risk line for anyone 14 and up: above it, cut back.";
   if (p.sodium_target != null) {
     return `<h2 id="sodium">Sodium</h2><div class="card"><form method="post" action="${action}" class="inline">
       <span class="muted">Sodium limit</span>${limit(p.sodium_target)}<span class="muted">mg a day</span><button class="pill" type="submit">Save</button>
@@ -1218,7 +1218,7 @@ function sodiumPanel(p: Player, meToken: string): string {
   }
   return `<h2 id="sodium">Sodium</h2><div class="card">
     <p style="margin:0 0 10px">Track sodium against a daily limit. Only you see it, and it isn't scored.</p>
-    <form method="post" action="${action}" class="inline"><span class="muted">Sodium limit</span>${limit(2300)}<span class="muted">mg</span><button class="pill" type="submit">Turn on</button></form>
+    <form method="post" action="${action}" class="inline"><span class="muted">Sodium limit</span>${limit(1500)}<span class="muted">mg</span><button class="pill" type="submit">Turn on</button></form>
     <p class="rules">${why}</p></div>`;
 }
 

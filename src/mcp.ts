@@ -168,7 +168,7 @@ Meals: leave meal_id null to start a new meal. Pass an existing meal_id (from ge
     description: "Turn on sodium tracking with a daily limit (private, not scored), change the limit, or turn it off with null.",
     inputSchema: {
       type: "object",
-      properties: { max_mg: { type: ["integer", "null"], minimum: 500, maximum: 10000, description: "Max milligrams of sodium a day; 2,300 is the US Dietary Guidelines limit, 1,500 the American Heart Association's ideal. Null turns tracking off." } },
+      properties: { max_mg: { type: ["integer", "null"], minimum: 500, maximum: 10000, description: "Max milligrams of sodium a day. Use 1,500 (the ideal intake from the National Academies and the American Heart Association) unless they name a number; 2,300 is the risk line to stay under. Null turns tracking off." } },
       required: ["max_mg"],
     },
   },

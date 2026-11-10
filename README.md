@@ -79,7 +79,7 @@ Each day, each player can earn up to **4 points**:
 - Food estimates aren't exact, so calories get 50 cal of grace past the target and protein 5g short of it (`CALORIE_GRACE`, `PROTEIN_GRACE_G`).
 - Fat and carbs are tracked and shown but not scored.
 - **Sugar (opt-in, private):** the agent estimates total and added sugar for every item, so each player can track added (refined) vs natural sugar against their own daily limit. When one player turns it on, the other's agent offers it to them once.
-- **Sodium (opt-in, private):** the agent estimates sodium (mg) for every item, and each player can track it against their own daily limit (2,300mg default, the US Dietary Guidelines limit).
+- **Sodium (opt-in, private):** the agent estimates sodium (mg) for every item, and each player can track it against their own daily limit (1,500mg default, the ideal intake; it also flags days past 2,300mg, the risk line).
 - **Gym consistency is tracked on the side, not scored:** this week's workout days (gym, sport, or run) on the scoreboard, a GitHub-style grid of every week on the history page, darker on days with two or more, and a streak of weeks that hit each player's own weekly goal.
 - Logging nothing doesn't count as a perfect cut day.
 - A bare total ("I hit 3,000 today") with no foods is saved but doesn't earn the calorie or protein point; the agent asks what was actually eaten.
