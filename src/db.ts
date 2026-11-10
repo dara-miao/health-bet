@@ -8,7 +8,7 @@ export interface Env {
   SLEEP_TARGET_HOURS: string;
   CUT_FLOOR_CALORIES: string;
   WAKE_WEEKDAY: string; // "08:30"
-  WAKE_WEEKEND: string; // "10:30"
+  WAKE_WEEKEND: string; // "09:30"
   WAKE_GRACE_MINUTES: string;
   CALORIE_GRACE?: string;
   PROTEIN_GRACE_G?: string;
