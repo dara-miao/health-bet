@@ -79,6 +79,7 @@ Each day, each player can earn up to **4 points**:
 - Food estimates aren't exact, so calories get 50 cal of grace past the target and protein 5g short of it (`CALORIE_GRACE`, `PROTEIN_GRACE_G`).
 - Fat and carbs are tracked and shown but not scored.
 - **Sugar (opt-in, private):** the agent estimates total and added sugar for every item, so each player can track added (refined) vs natural sugar against their own daily limit. When one player turns it on, the other's agent offers it to them once.
+- **Sodium (opt-in, private):** the agent estimates sodium (mg) for every item, and each player can track it against their own daily limit (2,300mg default, the US Dietary Guidelines limit).
 - **Gym consistency is tracked on the side, not scored:** this week's workout days (gym, sport, or run) on the scoreboard, a GitHub-style grid of every week on the history page, darker on days with two or more, and a streak of weeks that hit each player's own weekly goal.
 - Logging nothing doesn't count as a perfect cut day.
 - A bare total ("I hit 3,000 today") with no foods is saved but doesn't earn the calorie or protein point; the agent asks what was actually eaten.
@@ -99,6 +100,7 @@ Friendly competition, not surveillance. The other player sees only what the bet 
 | Meals | only ones you choose to share | ✓ all |
 | Fat and carbs | – | ✓ |
 | Sugar (added vs natural) | – | ✓ if you turn it on |
+| Sodium | – | ✓ if you turn it on |
 | Weight | – | ✓ |
 
 This is enforced on the server. When your friend's agent asks for status, the response simply doesn't contain your private fields, so there's nothing for a model to leak. Meals are private by default and shared one at a time (or a whole day) from your page or by texting "share my dinner".
@@ -107,13 +109,14 @@ This is enforced on the server. When your friend's agent asks for status, the re
 
 | Tool | What it does |
 |---|---|
-| `log_food` | Log items with calories, protein, fat, carbs, and sugar (total and added); add to an existing meal or backdate up to a week |
+| `log_food` | Log items with calories, protein, fat, carbs, sugar (total and added), and sodium; add to an existing meal or backdate up to a week |
 | `edit_food` / `delete_food` | Fix or remove a single item ("actually it was 3 eggs") |
 | `share_meal` | Share or unshare a meal, or a whole day, with the other player |
 | `sleep_start` / `sleep_end` | "gn" and "gm"; computes duration and the wake-up point |
 | `log_sleep` | A whole night after the fact ("slept 1 to 8") |
 | `get_status` | Current time, goals, today's meals with ids, the other player's shared stats, the week's standings |
 | `set_sugar_goal` | Turn on private sugar tracking with an added-sugar limit, change it, or turn it off |
+| `set_sodium_goal` | Turn on private sodium tracking with a daily mg limit, change it, or turn it off |
 | `log_workout` / `remove_workout` / `set_workout_target` | Mark a gym, sport, or run day on the consistency grid, and set the weekly goal the streak counts |
 | `set_goal` / `log_weight` / `set_punishment` | Goals, private weigh-ins, and the stakes |
 
@@ -125,7 +128,7 @@ Some details that took more than one try:
 
 - **Agents and time zones.** LLMs often send ISO timestamps without an offset, or today's date in UTC (already tomorrow in California at 9pm). Offset-less times are read as wall-clock time in the game's time zone, including across DST changes. Future dates are clamped to the current game day instead of rejecting a meal.
 - **A 4am game day.** Food uses a "game day" that rolls over at 4am. Sleep belongs to the calendar day you wake up. Both are pure functions with unit tests.
-- **Shipping features without a reconnect.** MCP clients cache the tool list, and a stateless server can't push `tools/list_changed`. New features therefore degrade gracefully: tool results carry short notes for the agent, sugar rides along as a tag in the item description (`"vanilla yogurt [sugar 16g, 9g added]"`, parsed and stripped server-side), and anything else gets a one-tap control on the player's private page.
+- **Shipping features without a reconnect.** MCP clients cache the tool list, and a stateless server can't push `tools/list_changed`. New features therefore degrade gracefully: tool results carry short notes for the agent, sugar rides along as a tag in the item description (`"vanilla yogurt [sugar 16g, 9g added]"`, parsed and stripped server-side; sodium works the same way with `[sodium 450mg]`), and anything else gets a one-tap control on the player's private page.
 - **Exactly-once scheduled messages.** The hourly cron dedupes on keys like `recap:2026-09-30`, so a retried or overlapping run never double-texts anyone.
 - **One-time secrets.** Your personal key is shown once. The join form uses post/redirect/get with a short-lived HttpOnly cookie, so refreshing can't silently rotate your key. Keys are stored as SHA-256 hashes.
 - **Remembered devices, no logins.** The site sits behind one shared password, entered once per phone and remembered with a year-long HttpOnly cookie. "My page" asks you to tap your name the first time, then goes straight to your private page after that.

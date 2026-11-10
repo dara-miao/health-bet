@@ -505,12 +505,12 @@ function nav(current: "board" | "history" | "me"): string {
     <a href="/me" ${cur("me")}>My page</a></div></nav>`;
 }
 
-function mealBlock(m: db.MealWithItems, opts: { owner?: string; color?: string; full: boolean; sugar?: boolean; shareForm?: string }): string {
+function mealBlock(m: db.MealWithItems, opts: { owner?: string; color?: string; full: boolean; sugar?: boolean; sodium?: boolean; shareForm?: string }): string {
   const t = mealTotals(m);
   const who = opts.owner ? `<span class="swatch" style="background:${opts.color}"></span>${esc(opts.owner)} · ` : "";
   const macros = opts.full ? ` · ${t.fat}g fat · ${t.carbs}g carbs` : "";
   const item = (it: db.FoodEntry) =>
-    `<li>${esc(it.description)} <span class="muted">(${it.calories} cal, ${it.protein_g}g P${opts.full ? `, ${it.fat_g}g F, ${it.carbs_g}g C` : ""}${opts.sugar && it.sugar_g != null ? `, ${it.sugar_g}g sugar${it.added_sugar_g ? ` (${it.added_sugar_g}g added)` : ""}` : ""})</span></li>`;
+    `<li>${esc(it.description)} <span class="muted">(${it.calories} cal, ${it.protein_g}g P${opts.full ? `, ${it.fat_g}g F, ${it.carbs_g}g C` : ""}${opts.sugar && it.sugar_g != null ? `, ${it.sugar_g}g sugar${it.added_sugar_g ? ` (${it.added_sugar_g}g added)` : ""}` : ""}${opts.sodium && it.sodium_mg != null ? `, ${fmt(it.sodium_mg)}mg sodium` : ""})</span></li>`;
   return `<div class="meal"><div class="meal-head"><div>${who}${m.name ? esc(m.name) : "Meal"}${
       opts.full ? (m.shared_at ? '<span class="chip on">shared</span>' : '<span class="chip">private</span>') : ""}</div>${opts.shareForm ?? ""}</div>
     <div class="tot">${fmt(t.calories)} cal · ${t.protein}g protein${macros}</div>
@@ -635,6 +635,14 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, to
           return `<div class="stat wide"><div class="k">Sugar · added max ${p.sugar_target}g</div><div class="v">${s.sugar == null ? "–" : `${added}<small>g added</small> <span class="of">${s.sugar}<small>g total</small></span>`}</div><div class="s">${st}</div></div>`;
         })()
       : "";
+  const sodiumTile =
+    full && p.sodium_target != null
+      ? (() => {
+          const max = p.sodium_target;
+          const st = s.sodium == null ? "No estimates yet" : `${s.sodium > max ? `<span class="bad">${fmt(s.sodium - max)}mg over</span>` : `${fmt(max - s.sodium)}mg left`} · not scored`;
+          return `<div class="stat wide"><div class="k">Sodium · max ${fmt(max)}mg</div><div class="v">${s.sodium == null ? "–" : `${fmt(s.sodium)}<small>mg</small>`}</div><div class="s">${st}</div></div>`;
+        })()
+      : "";
   const sleep = s.sleepMinutes;
   tiles.push(
     stat(
@@ -654,7 +662,7 @@ function playerCard(env: Env, p: Player, i: number, s: DayStats, day: string, to
   );
   return `<div class="pcard"><div class="head"><h3><span class="swatch" style="background:${seriesVar(i)}"></span>${esc(p.name)}
       <span class="muted" style="font-weight:500">· ${p.goal_type ?? "no goal yet"}</span></h3><span class="t">${todayPts}/4 today</span></div>
-    <div class="stats">${tiles.join("")}${sugarTile}</div></div>`;
+    <div class="stats">${tiles.join("")}${sugarTile}${sodiumTile}</div></div>`;
 }
 
 /** Watch-face ring: the arc is today's points out of 4, the number is the week total. */
@@ -898,6 +906,7 @@ function dayDetail(env: Env, p: Player, s: DayStats, full: boolean): string {
     ...(s.foodCount ? [`${s.protein}g protein`] : []),
     ...(full && s.foodCount ? [`${s.fat}g fat`, `${s.carbs}g carbs`] : []),
     ...(full && p.sugar_target != null && s.sugar != null ? [`${s.sugar}g sugar (${s.addedSugar ?? 0}g added)`] : []),
+    ...(full && p.sodium_target != null && s.sodium != null ? [`${fmt(s.sodium)}mg sodium`] : []),
     s.sleepMinutes != null ? `${prettyDuration(s.sleepMinutes)} sleep` : "no sleep logged",
     s.wakeAt ? `up ${prettyTime(s.wakeAt, env.GAME_TZ)}` : "no wake-up logged",
   ];
@@ -1121,11 +1130,19 @@ function trends(env: Env, series: Series[], days: string[], today: string, full:
     })
     .join("");
   const sugar = full && series[0].p.sugar_target != null ? sugarCard(series[0], days, today, axis, h) : "";
+  const sodium = (() => {
+    const x = series[0];
+    const max = x.p.sodium_target;
+    if (!full || max == null) return "";
+    const chart = barChart(bars(x, (s) => s.sodium ?? null, (s) => (s.sodium ?? 0) <= max, (_, v) => `${fmt(v)}mg sodium${v > max ? " (over)" : ""}`), seriesVar(x.i), () => max, { h, goal: { dir: "max", label: `${fmt(max)}mg` } });
+    return `<div class="card tcard tips"><h3>🧂 Sodium <span class="muted">· private</span></h3><div class="tcols n1"><div class="tcol" style="--gc:${seriesVar(x.i)}">
+      <div class="tlabel"><span class="muted">stay under ${fmt(max)}mg · not scored</span></div>${chart}${axis}</div></div><p class="tip-out" aria-live="polite"></p></div>`;
+  })();
   const weight = full
     ? `<div class="card tcard tips"><h3>⚖️ Weight <span class="muted">· private</span></h3><div class="tcols n1"><div class="tcol"><div class="tlabel"><span class="muted">${series[0].p.goal_weight_lb != null ? `goal ${series[0].p.goal_weight_lb} lb` : "no goal weight"}</span></div>
         ${lineChart(days.map((d) => ({ day: d, value: weights.find((w) => w.day === d)?.lb ?? null })), seriesVar(series[0].i), series[0].p.goal_weight_lb)}${axis}</div></div><p class="tip-out" aria-live="polite"></p></div>`
     : "";
-  return `<div class="tgrid">${cards}${sugar}${weight}</div><p class="rules">Solid means the goal was hit, faded means missed. The dashed line is the goal, and the shaded side is where you want to be (≤ stay under, ≥ reach, a range means stay between the two lines). On wake-up, higher is earlier. Tap a bar or dot for the number.</p>`;
+  return `<div class="tgrid">${cards}${sugar}${sodium}${weight}</div><p class="rules">Solid means the goal was hit, faded means missed. The dashed line is the goal, and the shaded side is where you want to be (≤ stay under, ≥ reach, a range means stay between the two lines). On wake-up, higher is earlier. Tap a bar or dot for the number.</p>`;
 }
 
 /** Tap or hover anything with data-tip to show it in the nearest .tip-out line. */
@@ -1188,6 +1205,23 @@ function sugarPanel(p: Player, players: Player[], meToken: string): string {
     <p class="rules">25g is the American Heart Association's limit for women, 36g for men.</p></div>`;
 }
 
+/** Turn sodium tracking on or off and set the daily limit. */
+function sodiumPanel(p: Player, meToken: string): string {
+  const action = `/me/${esc(meToken)}/settings`;
+  const limit = (v: number) => `<input type="number" name="sodium_target" min="500" max="10000" step="50" value="${v}" inputmode="numeric" aria-label="Sodium limit in milligrams">`;
+  const why = "2,300mg is the US Dietary Guidelines limit for anyone 14 and up; 1,500mg is the American Heart Association's ideal.";
+  if (p.sodium_target != null) {
+    return `<h2 id="sodium">Sodium</h2><div class="card"><form method="post" action="${action}" class="inline">
+      <span class="muted">Sodium limit</span>${limit(p.sodium_target)}<span class="muted">mg a day</span><button class="pill" type="submit">Save</button>
+      <button class="pill" type="submit" name="sodium" value="off">Stop tracking</button></form>
+      <p class="rules">Private and not scored. ${why}</p></div>`;
+  }
+  return `<h2 id="sodium">Sodium</h2><div class="card">
+    <p style="margin:0 0 10px">Track sodium against a daily limit. Only you see it, and it isn't scored.</p>
+    <form method="post" action="${action}" class="inline"><span class="muted">Sodium limit</span>${limit(2300)}<span class="muted">mg</span><button class="pill" type="submit">Turn on</button></form>
+    <p class="rules">${why}</p></div>`;
+}
+
 // ---------- scoreboard password (once per phone) ----------
 
 export function lockedPage(next: string, error = ""): Response {
@@ -1244,7 +1278,7 @@ export async function privatePage(env: Env, player: Player, meToken: string, now
       <input type="hidden" name="shared" value="${m.shared_at ? "0" : "1"}">
       <button type="submit">${m.shared_at ? "Unshare" : `Share with ${esc(others)}`}</button></form>`;
   const list = (ms: db.MealWithItems[], empty: string) =>
-    ms.length ? ms.map((m) => mealBlock(m, { full: true, sugar: player.sugar_target != null, shareForm: shareForm(m) })).join("") : `<p class="muted" style="margin:0">${empty}</p>`;
+    ms.length ? ms.map((m) => mealBlock(m, { full: true, sugar: player.sugar_target != null, sodium: player.sodium_target != null, shareForm: shareForm(m) })).join("") : `<p class="muted" style="margin:0">${empty}</p>`;
   // "Share all" until every meal that day is shared, then "Unshare all".
   const shareAll = (day: string, ms: db.MealWithItems[]) => {
     if (!ms.length) return "";
@@ -1268,6 +1302,7 @@ export async function privatePage(env: Env, player: Player, meToken: string, now
     ${dayHead("Today's food", today, todayMeals)}<div class="card">${list(todayMeals, "Nothing logged yet today. Text Poke what you ate.")}</div>
     ${dayHead("Yesterday", addDays(today, -1), yMeals)}<div class="card">${list(yMeals, "Nothing logged yesterday.")}</div>
     ${sugarPanel(player, players, meToken)}
+    ${sodiumPanel(player, meToken)}
     <h2>Since ${prettyDay(start)}</h2>${hitRates(env, me, days, today)}
     <h2>Day by day</h2>${dayByDay(env, me, days, today, true)}
     <h2>Trends</h2>${trends(env, me, days, today, true, weights)}`,

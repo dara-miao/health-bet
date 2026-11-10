@@ -137,6 +137,12 @@ async function handlePageAction(env: Env, player: Player, action: string, form: 
     if (n >= 1 && n <= 7) await db.setWorkoutTarget(env.DB, player.id, n);
     return "gym";
   }
+  if (field("sodium") === "off" || form.has("sodium_target")) {
+    const n = Math.round(Number(field("sodium_target")));
+    if (field("sodium") === "off") await db.setSodiumTarget(env.DB, player.id, null);
+    else if (n >= 500 && n <= 10000) await db.setSodiumTarget(env.DB, player.id, n);
+    return "sodium";
+  }
   if (field("sugar") === "off") await db.setSugarTarget(env.DB, player.id, null);
   else if (field("sugar") === "dismiss") await db.markSugarOffered(env.DB, player.id);
   else if (form.has("sugar_target")) {

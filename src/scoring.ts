@@ -40,6 +40,7 @@ export interface DayStats {
   carbs: number;
   sugar?: number | null; // total sugar, null if no item that day has an estimate
   addedSugar?: number | null;
+  sodium?: number | null; // mg, null if no item that day has an estimate
   foodCount: number;
   unitemized?: number; // entries that are a calorie number with no actual foods
   sleepMinutes: number | null;
